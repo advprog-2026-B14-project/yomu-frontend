@@ -45,18 +45,12 @@ export default async function Home() {
                 key={item.id || idx}
                 className="group relative rounded-xl border border-zinc-200 bg-white p-6 shadow-sm transition-all hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950"
               >
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col h-full justify-center">
                   <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-                    {item.name || "Unknown Achievement"}
+                    {item.nama || "Unknown Achievement"}
                   </h3>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 flex-grow">
-                    {item.description || "No description provided."}
-                  </p>
-                  <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center text-xs">
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-full">
-                      {item.amount ? `${item.amount} pts` : "Reward"}
-                    </span>
-                    <span className="text-zinc-400 dark:text-zinc-500">
+                  <div className="mt-2 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-end items-center text-xs">
+                    <span className="text-zinc-400 dark:text-zinc-500 font-mono">
                       ID: {item.id || idx}
                     </span>
                   </div>
