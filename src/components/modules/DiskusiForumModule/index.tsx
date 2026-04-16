@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 const API_BASE_URL = "http://18.207.58.155:8085/api/comments";
 const REACTIONS_API_BASE_URL = "http://18.207.58.155:8085/api/reactions";
@@ -18,8 +18,16 @@ type CommentItem = {
   id: string;
   content: string;
   parentCommentId?: string | null;
+  readingId?: string;
   reactions?: Reaction[];
 };
+
+type DiskusiForumModuleProps = {
+  readingId?: string;
+  className?: string;
+};
+
+const DEFAULT_READING_ID = "770e8400-e29b-41d4-a716-446655440001";
 
 const REACTION_OPTIONS: Array<{
   emoji: string;
@@ -32,7 +40,10 @@ const REACTION_OPTIONS: Array<{
   { emoji: "🤔", type: "EMOT_BERTANYA" },
 ];
 
-export const DiskusiForumModule = () => {
+export const DiskusiForumModule = ({
+  readingId = DEFAULT_READING_ID,
+  className = "",
+}: DiskusiForumModuleProps) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,26 +58,35 @@ export const DiskusiForumModule = () => {
 
   const currentUserId = "550e8400-e29b-41d4-a716-446655440000";
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
-      const res = await fetch(API_BASE_URL);
+      const url = new URL(API_BASE_URL);
+      url.searchParams.set("readingId", readingId);
+
+      const res = await fetch(url.toString());
       if (!res.ok) throw new Error("Gagal mengambil data dari AWS");
       const data: CommentItem[] = await res.json();
 
+      const filteredComments = data.filter(
+        (comment) => !comment.readingId || comment.readingId === readingId,
+      );
+
       const commentsWithReactions = await Promise.all(
-        (Array.isArray(data) ? data : []).map(async (comment) => {
-          try {
-            const reactionRes = await fetch(
-              `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
-            );
-            const reactions: Reaction[] = reactionRes.ok
-              ? await reactionRes.json()
-              : [];
-            return { ...comment, reactions };
-          } catch {
-            return { ...comment, reactions: [] };
-          }
-        }),
+        (Array.isArray(filteredComments) ? filteredComments : []).map(
+          async (comment) => {
+            try {
+              const reactionRes = await fetch(
+                `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
+              );
+              const reactions: Reaction[] = reactionRes.ok
+                ? await reactionRes.json()
+                : [];
+              return { ...comment, reactions };
+            } catch {
+              return { ...comment, reactions: [] };
+            }
+          },
+        ),
       );
 
       setComments(commentsWithReactions);
@@ -75,11 +95,11 @@ export const DiskusiForumModule = () => {
         err instanceof Error ? err.message : "Gagal mengambil komentar";
       setErrorMsg(message);
     }
-  };
+  }, [readingId]);
 
   useEffect(() => {
     fetchComments();
-  }, []);
+  }, [fetchComments]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +122,7 @@ export const DiskusiForumModule = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: currentUserId,
-          readingId: "770e8400-e29b-41d4-a716-446655440001",
+          readingId,
           content: content,
           parentCommentId: parentId,
         }),
@@ -370,47 +390,49 @@ export const DiskusiForumModule = () => {
   );
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-zinc-50 p-8 dark:bg-black font-sans">
-      <main className="w-full max-w-4xl rounded-2xl bg-white p-8 shadow-xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-        <h1 className="text-3xl font-bold text-center mb-8 dark:text-white">
-          Yomu Forum Diskusi
-        </h1>
-
-        <form onSubmit={handleCreate} className="mb-10">
-          <textarea
-            className="w-full p-4 rounded-xl border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-            placeholder="Apa pendapatmu mengenai bacaan ini?"
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            required
-          />
-          <button className="mt-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold shadow-md shadow-blue-500/20">
-            Kirim Komentar
-          </button>
-        </form>
-
-        {errorMsg && (
-          <div className="text-red-500 mb-6 bg-red-50 p-4 rounded-lg border border-red-100 flex justify-between items-center">
-            <span>{errorMsg}</span>
-            <button
-              type="button"
-              onClick={() => setErrorMsg(null)}
-              className="text-sm font-bold">
-              ×
-            </button>
-          </div>
-        )}
-
+    <section className={`w-full font-sans ${className}`.trim()}>
+      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
         <div className="space-y-8">
-          {rootComments.length > 0 ? (
-            rootComments.map((comment) => renderComment(comment))
-          ) : (
-            <p className="text-center text-zinc-500 py-10 italic">
-              Belum ada diskusi. Jadilah yang pertama berkomentar!
-            </p>
+          <h1 className="text-3xl font-bold text-center dark:text-white">
+            Yomu Forum Diskusi
+          </h1>
+
+          <form onSubmit={handleCreate} className="space-y-4">
+            <textarea
+              className="w-full p-4 rounded-xl border border-zinc-200 bg-transparent dark:border-zinc-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              placeholder="Apa pendapatmu mengenai bacaan ini?"
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              required
+            />
+            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold shadow-md shadow-blue-500/20">
+              Kirim Komentar
+            </button>
+          </form>
+
+          {errorMsg && (
+            <div className="flex items-center justify-between rounded-lg border border-red-200 px-4 py-3 text-red-600 dark:border-red-900/60 dark:text-red-300">
+              <span>{errorMsg}</span>
+              <button
+                type="button"
+                onClick={() => setErrorMsg(null)}
+                className="text-sm font-bold">
+                ×
+              </button>
+            </div>
           )}
+
+          <div className="space-y-8">
+            {rootComments.length > 0 ? (
+              rootComments.map((comment) => renderComment(comment))
+            ) : (
+              <p className="py-10 text-center italic text-zinc-500">
+                Belum ada diskusi. Jadilah yang pertama berkomentar!
+              </p>
+            )}
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </section>
   );
 };
