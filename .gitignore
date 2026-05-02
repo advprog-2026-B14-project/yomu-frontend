@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+milestones.csv
+yomu-bacaan-dan-kuis/
 
 # debug
 npm-debug.log*
