@@ -120,7 +120,7 @@ export const DiskusiForumModule = ({
     setReplyContent("");
     setReplyingToId(null);
   };
-
+  //...
   const postComment = async (content: string, parentId: string | null) => {
     try {
       const res = await fetch(COMMENTS_API_BASE_URL, {
