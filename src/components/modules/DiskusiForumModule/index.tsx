@@ -62,7 +62,7 @@ export const DiskusiForumModule = ({
 
   const fetchComments = useCallback(async () => {
     try {
-      const url = new URL(COMMENTS_API_BASE_URL);
+      const url = new URL(COMMENTS_API_BASE_URL, window.location.origin);
       url.searchParams.set("readingId", readingId);
 
       const res = await fetch(url.toString());
