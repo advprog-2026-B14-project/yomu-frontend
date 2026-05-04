@@ -2,14 +2,10 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 
-const API_BASE_URL = process.env.DISKUSI_FORUM_API_BASE_URL;
+const API_BASE_PATH = "/api/diskusi-forum";
 
-if (!API_BASE_URL) {
-  throw new Error("DISKUSI_FORUM_API_BASE_URL is not set");
-}
-
-const COMMENTS_API_BASE_URL = `${API_BASE_URL}/comments`;
-const REACTIONS_API_BASE_URL = `${API_BASE_URL}/reactions`;
+const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
+const REACTIONS_API_BASE_URL = `${API_BASE_PATH}/reactions`;
 
 type ReactionType = "API" | "ROKET" | "TERTAWA" | "CONFETI" | "EMOT_BERTANYA";
 
@@ -120,7 +116,7 @@ export const DiskusiForumModule = ({
     setReplyContent("");
     setReplyingToId(null);
   };
-  //...
+
   const postComment = async (content: string, parentId: string | null) => {
     try {
       const res = await fetch(COMMENTS_API_BASE_URL, {
@@ -158,7 +154,7 @@ export const DiskusiForumModule = ({
       setErrorMsg(message);
     }
   };
-
+  //
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus komentar ini?")) return;
     try {
