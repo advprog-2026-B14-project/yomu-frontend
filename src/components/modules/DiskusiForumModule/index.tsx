@@ -2,14 +2,10 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL;
+const API_BASE_PATH = "/api/diskusi-forum";
 
-if (!API_BASE_URL) {
-  throw new Error("NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL is not set");
-}
-
-const COMMENTS_API_BASE_URL = `${API_BASE_URL}/comments`;
-const REACTIONS_API_BASE_URL = `${API_BASE_URL}/reactions`;
+const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
+const REACTIONS_API_BASE_URL = `${API_BASE_PATH}/reactions`;
 
 type ReactionType = "API" | "ROKET" | "TERTAWA" | "CONFETI" | "EMOT_BERTANYA";
 
