@@ -2,10 +2,10 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 
-const API_BASE_URL = process.env.DISKUSI_FORUM_API_BASE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL;
 
 if (!API_BASE_URL) {
-  throw new Error("DISKUSI_FORUM_API_BASE_URL is not set");
+  throw new Error("NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL is not set");
 }
 
 const COMMENTS_API_BASE_URL = `${API_BASE_URL}/comments`;
