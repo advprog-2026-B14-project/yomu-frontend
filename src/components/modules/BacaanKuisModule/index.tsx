@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 type Category = {
   id: number;
@@ -59,9 +59,30 @@ type QuizForm = {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
+const shell = "min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)] text-slate-900";
+const panel = "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur";
+const subtlePanel = "rounded-2xl border border-slate-200 bg-white shadow-sm";
+const input =
+  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
+const primary =
+  "rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300";
+const secondary =
+  "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-400";
+const danger =
+  "rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300";
+
+const optionKeys = ["A", "B", "C", "D"] as const;
+
+const estimateReadingTime = (content: string) => {
+  const words = content.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 180));
+};
+
 export const BacaanKuisModule = () => {
-  const [activeTab, setActiveTab] = useState<"learner" | "admin">("learner");
+  const [activeView, setActiveView] = useState<"learn" | "quiz" | "admin" | "forum">("learn");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -74,6 +95,9 @@ export const BacaanKuisModule = () => {
   const [learnerQuizIds, setLearnerQuizIds] = useState<number[]>([]);
   const [learnerAnswers, setLearnerAnswers] = useState<Record<number, string>>({});
   const [score, setScore] = useState<number | null>(null);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [isBookmarked, setIsBookmarked] = useState(false);
 
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [categoryName, setCategoryName] = useState("");
@@ -96,19 +120,46 @@ export const BacaanKuisModule = () => {
     correctAnswer: "",
   });
 
-  const readingMap = useMemo(() => {
-    return new Map(readings.map((reading) => [reading.id, reading.title]));
-  }, [readings]);
+  const readingMap = useMemo(() => new Map(readings.map((reading) => [reading.id, reading.title])), [readings]);
+  const categoryMap = useMemo(() => new Map(categories.map((category) => [category.id, category.name])), [categories]);
 
-  const categoryMap = useMemo(() => {
-    return new Map(categories.map((category) => [category.id, category.name]));
-  }, [categories]);
+  const selectedReading = useMemo(() => {
+    const readingId = Number(selectedReadingId);
+    return readings.find((reading) => reading.id === readingId) ?? null;
+  }, [readings, selectedReadingId]);
+
+  const answeredCount = useMemo(() => Object.values(learnerAnswers).filter(Boolean).length, [learnerAnswers]);
+  const quizProgress = learnerQuestions.length ? Math.round((answeredCount / learnerQuestions.length) * 100) : 0;
+  const activeQuestion = learnerQuestions[currentQuestion] ?? null;
+  const scoreIsPercentage = score !== null && learnerQuestions.length > 0 && score > learnerQuestions.length;
+  const normalizedScorePercent =
+    score === null ? 0 : scoreIsPercentage ? score : learnerQuestions.length ? Math.round((score / learnerQuestions.length) * 100) : score;
+  const scoreSummary = score === null ? "-" : scoreIsPercentage ? `${score}%` : `${score}/${learnerQuestions.length}`;
+  const totalQuestionsForSelectedReading = selectedReading
+    ? quizzes.filter((quiz) => quiz.readingId === selectedReading.id).length
+    : 0;
+  const estimatedMinutes = readingView?.content ? estimateReadingTime(readingView.content) : 0;
+  const xpPreview = Math.max(40, learnerQuestions.length * 20);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
     window.setTimeout(() => {
       setToast((previous) => (previous?.message === message ? null : previous));
     }, 2500);
+  };
+
+  const withLoading = async (action: string, callback: () => Promise<void>) => {
+    setLoadingAction(action);
+    setLastError(null);
+    try {
+      await callback();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Terjadi kesalahan.";
+      setLastError(message);
+      showToast(message, "error");
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const toUrl = (path: string) => `${API_BASE_URL.replace(/\/$/, "")}${path}`;
@@ -119,10 +170,7 @@ export const BacaanKuisModule = () => {
       headers.set("Content-Type", "application/json");
     }
 
-    const response = await fetch(toUrl(path), {
-      ...options,
-      headers,
-    });
+    const response = await fetch(toUrl(path), { ...options, headers });
 
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
@@ -144,7 +192,12 @@ export const BacaanKuisModule = () => {
       return null as T;
     }
 
-    return response.json() as Promise<T>;
+    const bodyText = await response.text();
+    if (!bodyText) {
+      return null as T;
+    }
+
+    return JSON.parse(bodyText) as T;
   };
 
   const bootstrapData = async () => {
@@ -157,18 +210,18 @@ export const BacaanKuisModule = () => {
     setCategories(categoryData);
     setReadings(readingData);
     setQuizzes(quizData);
+    setLastError(null);
   };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       bootstrapData().catch((error: Error) => {
+        setLastError(error.message);
         showToast(`Gagal memuat data awal: ${error.message}`, "error");
       });
     }, 0);
 
-    return () => {
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -182,46 +235,54 @@ export const BacaanKuisModule = () => {
 
   const getSelectedReadingNumber = () => {
     const readingId = Number(selectedReadingId);
-    if (Number.isNaN(readingId)) {
+    if (Number.isNaN(readingId) || !readingId) {
       throw new Error("Pilih bacaan terlebih dahulu.");
     }
     return readingId;
+  };
+
+  const resetLearnerFlow = () => {
+    setReadingView(null);
+    setLearnerQuestions([]);
+    setLearnerQuizIds([]);
+    setLearnerAnswers({});
+    setScore(null);
+    setQuizStarted(false);
+    setCurrentQuestion(0);
   };
 
   const loadLearnerReading = async () => {
     const sid = requireStudentId();
     const readingId = getSelectedReadingNumber();
     const reading = await api<LearnerReadingResponse>(`/api/learner/readings/${readingId}`, {
-      headers: {
-        "X-Student-Id": sid,
-      },
+      headers: { "X-Student-Id": sid },
     });
 
     setReadingView(reading);
+    setQuizStarted(false);
+    setLearnerQuestions([]);
+    setLearnerQuizIds([]);
+    setLearnerAnswers({});
+    setScore(null);
+    setActiveView("learn");
     showToast("Bacaan berhasil dimuat");
   };
 
-  const startQuiz = async () => {
+  const ensureQuizAttemptStarted = async () => {
     const sid = requireStudentId();
     const readingId = getSelectedReadingNumber();
     await api<null>(`/api/learner/readings/${readingId}/quiz/start`, {
       method: "POST",
-      headers: {
-        "X-Student-Id": sid,
-      },
+      headers: { "X-Student-Id": sid },
     });
-
-    showToast("Kuis dimulai");
   };
 
-  const loadQuestions = async () => {
+  const fetchQuestions = async () => {
     const sid = requireStudentId();
     const readingId = getSelectedReadingNumber();
     const [questions, quizData] = await Promise.all([
       api<LearnerQuestion[]>(`/api/learner/readings/${readingId}/quiz`, {
-        headers: {
-          "X-Student-Id": sid,
-        },
+        headers: { "X-Student-Id": sid },
       }),
       api<Quiz[]>("/api/admin/quizzes"),
     ]);
@@ -230,6 +291,7 @@ export const BacaanKuisModule = () => {
     setLearnerQuestions(questions);
     setLearnerQuizIds(ids);
     setLearnerAnswers({});
+    setCurrentQuestion(0);
 
     if (ids.length !== questions.length) {
       showToast("Peringatan: ID kuis tidak sinkron dengan data soal", "error");
@@ -239,8 +301,28 @@ export const BacaanKuisModule = () => {
     showToast("Soal kuis berhasil dimuat");
   };
 
+  const startQuiz = async () => {
+    await ensureQuizAttemptStarted();
+    await fetchQuestions();
+
+    setQuizStarted(true);
+    setReadingView(null);
+    setScore(null);
+    setActiveView("quiz");
+    showToast("Kuis dimulai. Teks bacaan disembunyikan.");
+  };
+
+  const loadQuestions = async () => {
+    await ensureQuizAttemptStarted();
+    await fetchQuestions();
+    setQuizStarted(true);
+    setReadingView(null);
+    setActiveView("quiz");
+  };
+
   const submitLearnerQuiz = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    await ensureQuizAttemptStarted();
     const sid = requireStudentId();
     const readingId = getSelectedReadingNumber();
 
@@ -254,14 +336,18 @@ export const BacaanKuisModule = () => {
 
     const result = await api<{ score: number }>(`/api/learner/readings/${readingId}/quiz/submit`, {
       method: "POST",
-      headers: {
-        "X-Student-Id": sid,
-      },
+      headers: { "X-Student-Id": sid },
       body: JSON.stringify({ answers }),
     });
 
-    setScore(result.score);
-    showToast("Jawaban terkirim");
+    const submittedScore = result.score ?? 0;
+    const submittedScoreIsPercentage = learnerQuestions.length > 0 && submittedScore > learnerQuestions.length;
+    const submittedSummary = submittedScoreIsPercentage ? `${submittedScore}%` : `${submittedScore}/${learnerQuestions.length}`;
+
+    setScore(submittedScore);
+    setQuizStarted(false);
+    setCurrentQuestion(0);
+    showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };
 
   const saveCategory = async (event: FormEvent<HTMLFormElement>) => {
@@ -292,7 +378,6 @@ export const BacaanKuisModule = () => {
 
   const saveReading = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     const payload = {
       title: readingForm.title.trim(),
       content: readingForm.content.trim(),
@@ -376,463 +461,1422 @@ export const BacaanKuisModule = () => {
   };
 
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-6xl px-4 pb-8 pt-10 md:px-6">
-      <div className="pointer-events-none fixed -left-24 top-32 h-64 w-64 rounded-full bg-orange-300/35 blur-xl" />
-      <div className="pointer-events-none fixed -bottom-8 -right-20 h-56 w-56 rounded-full bg-teal-300/30 blur-xl" />
+    <div className={shell}>
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl gap-4 px-4 py-4 lg:px-6">
+        <aside className={`${panel} sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 p-4 lg:block`}>
+          <div className="mb-8 flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-700 text-lg font-black text-white">Y</div>
+            <div>
+              <p className="text-lg font-black tracking-tight">Yomu</p>
+              <p className="text-xs font-semibold text-slate-500">Learning OS</p>
+            </div>
+          </div>
 
-      <header className="fade-in-up pb-4">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-slate-600">Learning Platform</p>
-        <h1 className="mt-2 text-4xl font-extrabold leading-tight text-slate-800 md:text-5xl">Yomu Bacaan dan Kuis</h1>
-        <p className="mt-2 max-w-3xl text-slate-600">
-          Frontend Next.js + Tailwind untuk mode learner dan admin dalam satu dashboard.
-        </p>
-      </header>
+          <nav className="space-y-2">
+            {[
+              ["learn", "Bacaan", "Read"],
+              ["quiz", "Quiz", "Test"],
+              ["forum", "Forum Diskusi", "Forum"],
+              ["admin", "Admin Studio", "CMS"],
+            ].map(([view, label, badge]) => (
+              <button
+                key={view}
+                type="button"
+                onClick={() => setActiveView(view as "learn" | "quiz" | "admin" | "forum")}
+                className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
+                  activeView === view ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10" : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                <span>{label}</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] ${
+                    activeView === view ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-white"
+                  }`}
+                >
+                  {badge}
+                </span>
+              </button>
+            ))}
+          </nav>
 
-      <section className="soft-panel sticky top-2 z-20 rounded-2xl p-3 backdrop-blur-md">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("learner")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-              activeTab === "learner" ? "brand-btn text-white" : "bg-white text-slate-700"
-            }`}
-          >
-            Mode Learner
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("admin")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
-              activeTab === "admin" ? "brand-btn text-white" : "bg-white text-slate-700"
-            }`}
-          >
-            Mode Admin
-          </button>
-        </div>
-      </section>
+          <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">Level Progress</p>
+            <p className="mt-2 text-2xl font-black">Level 4</p>
+            <div className="mt-3 h-2 rounded-full bg-white/15">
+              <div className="h-2 w-2/3 rounded-full bg-amber-300" />
+            </div>
+            <p className="mt-2 text-xs text-slate-300">680 XP menuju level berikutnya</p>
+          </div>
+        </aside>
 
-      {activeTab === "learner" ? (
-        <section className="mt-4 space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <article className="soft-panel fade-in-up rounded-3xl p-4">
-              <h2 className="mb-3 text-xl font-extrabold text-slate-800">Persiapan Learner</h2>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Student ID</label>
+        <main className="min-w-0 flex-1">
+          <header className={`${panel} mb-4 flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between`}>
+            <div>
+              <p className="text-sm font-bold text-emerald-700">Selamat belajar, {studentId.trim() || "Learner"}</p>
+              <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Bacaan dan Kuis</h1>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 value={studentId}
                 onChange={(event) => setStudentId(event.target.value)}
-                placeholder="contoh: 2206012345"
-                className="mb-3 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
+                placeholder="Student ID"
+                className={`${input} sm:w-48`}
               />
+              <button
+                type="button"
+                className={secondary}
+                onClick={() =>
+                  withLoading("refresh", async () => {
+                    await bootstrapData();
+                    showToast("Data diperbarui");
+                  })
+                }
+                disabled={loadingAction === "refresh"}
+              >
+                {loadingAction === "refresh" ? "Memuat..." : "Sync Data"}
+              </button>
+            </div>
+          </header>
 
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Pilih Bacaan</label>
-              <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                <select
-                  value={selectedReadingId}
-                  onChange={(event) => setSelectedReadingId(event.target.value)}
-                  className="w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-                >
-                  <option value="">Pilih bacaan</option>
-                  {readings.map((reading) => (
-                    <option key={reading.id} value={reading.id}>
-                      {reading.id} - {reading.title}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() =>
-                    bootstrapData()
-                      .then(() => showToast("Data diperbarui"))
-                      .catch((error: Error) => showToast(error.message, "error"))
-                  }
-                  className="accent-btn rounded-xl px-4 py-2 font-bold text-white"
-                >
-                  Refresh
-                </button>
-              </div>
+          {lastError && <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{lastError}</div>}
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="brand-btn rounded-xl px-4 py-2 font-bold text-white"
-                  onClick={() => loadLearnerReading().catch((error: Error) => showToast(error.message, "error"))}
-                >
-                  Muat Bacaan
-                </button>
-                <button
-                  type="button"
-                  className="brand-btn rounded-xl px-4 py-2 font-bold text-white"
-                  onClick={() => startQuiz().catch((error: Error) => showToast(error.message, "error"))}
-                >
-                  Mulai Kuis
-                </button>
-                <button
-                  type="button"
-                  className="accent-btn rounded-xl px-4 py-2 font-bold text-white"
-                  onClick={() => loadQuestions().catch((error: Error) => showToast(error.message, "error"))}
-                >
-                  Muat Soal
-                </button>
-              </div>
-              <p className="mt-3 text-sm text-slate-600">Tips: baca materi dulu, baru klik Mulai Kuis.</p>
-            </article>
+          <section className="mb-4 grid gap-3 md:grid-cols-4">
+            <StatCard label="Total Bacaan" value={readings.length} tone="emerald" />
+            <StatCard label="Soal Aktif" value={quizzes.length} tone="amber" />
+            <StatCard label="Kategori" value={categories.length} tone="teal" />
+            <StatCard label="Quiz Progress" value={`${quizProgress}%`} tone="purple" />
+          </section>
 
-            <article className="soft-panel fade-in-up rounded-3xl p-4">
-              <h2 className="mb-3 text-xl font-extrabold text-slate-800">Materi Bacaan</h2>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="font-extrabold text-slate-800">{readingView?.title ?? "Belum ada bacaan dipilih"}</p>
-                <span
-                  className={`rounded-full border px-3 py-1 font-mono text-xs ${
-                    readingView?.isLocked ? "border-red-600 text-red-700" : "border-emerald-600 text-emerald-700"
-                  }`}
-                >
-                  Status: {readingView ? (readingView.isLocked ? "Terkunci" : "Terbuka") : "-"}
-                </span>
-              </div>
-              <div className="min-h-40 whitespace-pre-wrap rounded-xl border border-dashed border-[#d7d0c3] bg-white p-3 leading-relaxed text-slate-700">
-                {readingView?.content || "Pilih bacaan lalu klik Muat Bacaan."}
-              </div>
-            </article>
+          <div className="mb-4 grid gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden md:grid-cols-4">
+            {[
+              ["learn", "Bacaan"],
+              ["quiz", "Quiz"],
+              ["forum", "Forum"],
+              ["admin", "Admin"],
+            ].map(([view, label]) => (
+              <button
+                key={view}
+                type="button"
+                onClick={() => setActiveView(view as "learn" | "quiz" | "admin" | "forum")}
+                className={`rounded-xl px-3 py-2 text-sm font-bold ${
+                  activeView === view ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          <article className="soft-panel fade-in-up rounded-3xl p-4">
-            <h2 className="mb-3 text-xl font-extrabold text-slate-800">Kuis</h2>
-            <form onSubmit={(event) => submitLearnerQuiz(event).catch((error: Error) => showToast(error.message, "error"))}>
-              <div className="space-y-3">
-                {!learnerQuestions.length ? (
-                  <div className="rounded-xl border border-[#d7d0c3] bg-white p-3 text-slate-600">Belum ada soal. Klik Muat Soal.</div>
+          {activeView === "learn" && (
+            <section className="grid gap-4 xl:grid-cols-[360px_1fr] xl:items-start">
+              {/* Learning Path Panel */}
+              <div className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
+                <div className="shrink-0 p-5 pb-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Learning Path</p>
+                  <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Pilih bacaan hari ini</h2>
+                  <p className="mt-1.5 text-sm leading-6 text-slate-500">
+                    Baca materi dengan fokus, lalu masuk ke mode kuis.
+                  </p>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+                  <div className="space-y-3">
+                    {readings.map((reading, index) => {
+                      const quizCount = quizzes.filter((quiz) => quiz.readingId === reading.id).length;
+                      return (
+                        <ReadingPathCard
+                          key={reading.id}
+                          reading={reading}
+                          index={index}
+                          category={categoryMap.get(reading.categoryId) ?? "Tanpa kategori"}
+                          quizCount={quizCount}
+                          selected={selectedReadingId === String(reading.id)}
+                          onSelect={() => {
+                            setSelectedReadingId(String(reading.id));
+                            resetLearnerFlow();
+                          }}
+                        />
+                      );
+                    })}
+                    {!readings.length && (
+                      <EmptyState title="Belum ada bacaan" description="Sync data atau jalankan seed untuk mengisi learning path." />
+                    )}
+                  </div>
+                </div>
+
+                <div className="shrink-0 border-t border-slate-100 p-4">
+                  <button type="button" className={`${primary} w-full`} onClick={() => withLoading("load-reading", loadLearnerReading)} disabled={loadingAction === "load-reading"}>
+                    {loadingAction === "load-reading" ? "Membuka..." : "Lanjutkan Belajar"}
+                  </button>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button type="button" className={secondary} onClick={() => withLoading("start-quiz", startQuiz)} disabled={!!loadingAction}>
+                      {loadingAction === "start-quiz" ? "Memulai..." : "Mulai Quiz"}
+                    </button>
+                    <button type="button" className={secondary} onClick={() => withLoading("load-questions", loadQuestions)} disabled={!!loadingAction}>
+                      {loadingAction === "load-questions" ? "Memuat..." : "Muat Soal Quiz"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reading Mode Panel */}
+              <article className={`${panel} flex flex-col overflow-hidden xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
+                <div className="shrink-0">
+                  <div className="h-1 bg-slate-100">
+                    <div className="h-1 rounded-r-full bg-emerald-500 transition-all" style={{ width: readingView ? "60%" : "15%" }} />
+                  </div>
+                  <div className="border-b border-slate-100 p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Reading Mode</p>
+                        <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
+                          {quizStarted ? "Quiz sedang berlangsung" : readingView?.title ?? "Belum ada bacaan dibuka"}
+                        </h2>
+                        {readingView && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                              {estimatedMinutes} menit baca
+                            </span>
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                              {categoryMap.get(readingView.categoryId) ?? "Kategori"}
+                            </span>
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                              {totalQuestionsForSelectedReading} soal kuis
+                            </span>
+                          </div>
+                        )}
+                        {!readingView && (
+                          <p className="mt-1.5 text-sm text-slate-400">Pilih bacaan di panel kiri, lalu klik Lanjutkan Belajar</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsBookmarked((value) => !value)}
+                        className={`${secondary} shrink-0 px-3`}
+                      >
+                        {isBookmarked ? "Saved ★" : "Bookmark"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <div className="mx-auto w-full max-w-3xl px-5 py-8">
+                    {quizStarted ? (
+                      <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center">
+                        <p className="text-sm font-bold uppercase tracking-wide text-amber-700">Focus Mode</p>
+                        <h3 className="mt-2 text-2xl font-black text-amber-950">Materi disembunyikan</h3>
+                        <p className="mt-3 text-sm leading-6 text-amber-900">
+                          Kuis sedang berlangsung. Teks bacaan tidak ditampilkan.
+                        </p>
+                      </div>
+                    ) : readingView ? (
+                      <MarkdownContent content={readingView.content} />
+                    ) : (
+                      <EmptyState title="Reading mode kosong" description="Klik Lanjutkan Belajar untuk membuka materi bacaan." />
+                    )}
+                  </div>
+                </div>
+              </article>
+            </section>
+          )}
+
+          {activeView === "quiz" && (
+            <section className="grid gap-4 xl:grid-cols-[1fr_320px]">
+              <form
+                className={`${panel} p-5`}
+                onSubmit={(event) =>
+                  withLoading("submit-quiz", async () => {
+                    await submitLearnerQuiz(event);
+                  })
+                }
+              >
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Quiz Arena</p>
+                    <h2 className="mt-2 text-3xl font-black tracking-tight">Tes pemahamanmu</h2>
+                  </div>
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Reward {xpPreview} XP</span>
+                </div>
+
+                <div className="mb-6 h-3 rounded-full bg-slate-100">
+                  <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${quizProgress}%` }} />
+                </div>
+
+                {score !== null ? (
+                  <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-6 text-center">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Quiz Completed</p>
+                    <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Hasil belajarmu sudah tercatat</h3>
+                    <div className="mx-auto mt-6 grid h-44 w-44 place-items-center rounded-full bg-slate-950 text-white shadow-2xl shadow-emerald-900/15">
+                      <div>
+                        <p className="text-5xl font-black">{scoreSummary}</p>
+                        <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-300">Score</p>
+                      </div>
+                    </div>
+                    <div className="mx-auto mt-6 h-3 max-w-md rounded-full bg-slate-200">
+                      <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${Math.min(100, normalizedScorePercent)}%` }} />
+                    </div>
+                    <p className="mt-4 text-sm leading-6 text-slate-600">
+                      Kamu mendapat {normalizedScorePercent}% pemahaman pada kuis ini dan memperoleh estimasi {xpPreview} XP.
+                    </p>
+                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                      <button
+                        type="button"
+                        className={primary}
+                        onClick={() => {
+                          setActiveView("learn");
+                          setLearnerQuestions([]);
+                          setLearnerQuizIds([]);
+                          setLearnerAnswers({});
+                        }}
+                      >
+                        Kembali ke Bacaan
+                      </button>
+                      <button
+                        type="button"
+                        className={secondary}
+                        onClick={() => {
+                          setScore(null);
+                          setLearnerAnswers({});
+                          setCurrentQuestion(0);
+                        }}
+                      >
+                        Lihat Soal Lagi
+                      </button>
+                    </div>
+                  </div>
+                ) : activeQuestion ? (
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600 shadow-sm">
+                        Pertanyaan {currentQuestion + 1}/{learnerQuestions.length}
+                      </span>
+                      <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-black text-purple-700">Medium</span>
+                    </div>
+                    <h3 className="text-xl font-black leading-8 text-slate-950">{activeQuestion.question}</h3>
+                    <div className="mt-5 grid gap-3">
+                      {optionKeys.map((key) => {
+                        const selected = learnerAnswers[currentQuestion] === key;
+                        return (
+                          <label
+                            key={key}
+                            className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:bg-white ${
+                              selected ? "border-emerald-500 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`answer-${currentQuestion}`}
+                              value={key}
+                              checked={selected}
+                              onChange={(event) =>
+                                setLearnerAnswers((previous) => ({
+                                  ...previous,
+                                  [currentQuestion]: event.target.value,
+                                }))
+                              }
+                              className="mt-1"
+                            />
+                            <span>
+                              <span className="font-black text-slate-900">{key}.</span>{" "}
+                              <span className="text-slate-700">{activeQuestion[`option${key}`]}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ) : (
-                  learnerQuestions.map((quiz, index) => (
-                    <article key={`${quiz.question}-${index}`} className="rounded-xl border border-[#d7d0c3] bg-white p-3">
-                      <h3 className="mb-2 text-base font-bold text-slate-800">
-                        {index + 1}. {quiz.question}
-                      </h3>
-                      {(["A", "B", "C", "D"] as const).map((key) => (
-                        <label key={key} className="mb-1 flex items-center gap-2 text-slate-700">
-                          <input
-                            type="radio"
-                            name={`answer-${index}`}
-                            value={key}
-                            checked={learnerAnswers[index] === key}
-                            onChange={(event) =>
-                              setLearnerAnswers((previous) => ({
-                                ...previous,
-                                [index]: event.target.value,
-                              }))
-                            }
-                          />
-                          <span>
-                            {key}. {quiz[`option${key}`]}
-                          </span>
-                        </label>
-                      ))}
-                    </article>
-                  ))
+                  <EmptyState title="Belum ada soal" description="Pilih bacaan, mulai quiz, lalu muat soal dari backend." />
                 )}
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button type="submit" className="brand-btn rounded-xl px-4 py-2 font-bold text-white">
-                  Submit Jawaban
-                </button>
-                <span className="rounded-full border border-[#d7d0c3] bg-white px-3 py-1 font-mono text-sm text-slate-700">
-                  Skor: {score ?? "-"}
-                </span>
-              </div>
-            </form>
-          </article>
-        </section>
-      ) : (
-        <section className="mt-4 grid gap-4 xl:grid-cols-3">
-          <article className="soft-panel fade-in-up rounded-3xl p-4">
-            <h2 className="mb-3 text-xl font-extrabold text-slate-800">Kategori</h2>
-            <form onSubmit={(event) => saveCategory(event).catch((error: Error) => showToast(error.message, "error"))}>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Nama Kategori</label>
-              <input
-                value={categoryName}
-                onChange={(event) => setCategoryName(event.target.value)}
-                className="mb-3 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-              />
-              <div className="mb-3 flex gap-2">
-                <button type="submit" className="brand-btn rounded-xl px-4 py-2 font-bold text-white">
-                  Simpan
-                </button>
-                <button
-                  type="button"
-                  className="accent-btn rounded-xl px-4 py-2 font-bold text-white"
-                  onClick={() => {
-                    setEditingCategoryId(null);
-                    setCategoryName("");
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-            </form>
-            <div className="space-y-2">
-              {categories.map((category) => (
-                <div key={category.id} className="rounded-xl border border-[#d7d0c3] bg-white p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-slate-800">{category.name}</p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="accent-btn rounded-lg px-2 py-1 text-xs font-bold text-white"
-                        onClick={() => {
-                          setEditingCategoryId(category.id);
-                          setCategoryName(category.name);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="danger-btn rounded-lg px-2 py-1 text-xs font-bold text-white"
-                        onClick={() =>
-                          api(`/api/admin/categories/${category.id}`, { method: "DELETE" })
-                            .then(() => {
-                              showToast("Kategori dihapus");
-                              return bootstrapData();
-                            })
-                            .catch((error: Error) => showToast(error.message, "error"))
-                        }
-                      >
-                        Hapus
-                      </button>
-                    </div>
+
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className={secondary}
+                      onClick={() => setCurrentQuestion((value) => Math.max(0, value - 1))}
+                      disabled={score !== null || !learnerQuestions.length || currentQuestion === 0}
+                    >
+                      Sebelumnya
+                    </button>
+                    <button
+                      type="button"
+                      className={secondary}
+                      onClick={() => setCurrentQuestion((value) => Math.min(learnerQuestions.length - 1, value + 1))}
+                      disabled={score !== null || !learnerQuestions.length || currentQuestion >= learnerQuestions.length - 1}
+                    >
+                      Berikutnya
+                    </button>
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">ID {category.id}</p>
+                  <button type="submit" className={primary} disabled={score !== null || !learnerQuestions.length || loadingAction === "submit-quiz"}>
+                    {loadingAction === "submit-quiz" ? "Mengirim..." : "Submit Quiz"}
+                  </button>
                 </div>
-              ))}
-            </div>
-          </article>
+              </form>
 
-          <article className="soft-panel fade-in-up rounded-3xl p-4">
-            <h2 className="mb-3 text-xl font-extrabold text-slate-800">Bacaan</h2>
-            <form onSubmit={(event) => saveReading(event).catch((error: Error) => showToast(error.message, "error"))}>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Judul</label>
-              <input
-                value={readingForm.title}
-                onChange={(event) => setReadingForm((previous) => ({ ...previous, title: event.target.value }))}
-                className="mb-2 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-              />
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Kategori</label>
-              <select
-                value={readingForm.categoryId}
-                onChange={(event) => setReadingForm((previous) => ({ ...previous, categoryId: event.target.value }))}
-                className="mb-2 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-              >
-                <option value="">Pilih kategori</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.id} - {category.name}
-                  </option>
-                ))}
-              </select>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Konten</label>
-              <textarea
-                rows={4}
-                value={readingForm.content}
-                onChange={(event) => setReadingForm((previous) => ({ ...previous, content: event.target.value }))}
-                className="mb-3 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-              />
-              <div className="mb-3 flex gap-2">
-                <button type="submit" className="brand-btn rounded-xl px-4 py-2 font-bold text-white">
-                  Simpan
-                </button>
-                <button
-                  type="button"
-                  className="accent-btn rounded-xl px-4 py-2 font-bold text-white"
-                  onClick={() => {
-                    setEditingReadingId(null);
-                    setReadingForm({ title: "", content: "", categoryId: "" });
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-            </form>
-            <div className="space-y-2">
-              {readings.map((reading) => (
-                <div key={reading.id} className="rounded-xl border border-[#d7d0c3] bg-white p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-slate-800">{reading.title}</p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="accent-btn rounded-lg px-2 py-1 text-xs font-bold text-white"
-                        onClick={() => {
-                          setEditingReadingId(reading.id);
-                          setReadingForm({
-                            title: reading.title,
-                            content: reading.content,
-                            categoryId: String(reading.categoryId),
-                          });
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="danger-btn rounded-lg px-2 py-1 text-xs font-bold text-white"
-                        onClick={() =>
-                          api(`/api/admin/readings/${reading.id}`, { method: "DELETE" })
-                            .then(() => {
-                              showToast("Bacaan dihapus");
-                              return bootstrapData();
-                            })
-                            .catch((error: Error) => showToast(error.message, "error"))
-                        }
-                      >
-                        Hapus
-                      </button>
-                    </div>
+              <aside className="space-y-4">
+                <div className={`${panel} p-5`}>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Navigator</p>
+                  <div className="mt-4 grid grid-cols-5 gap-2">
+                    {learnerQuestions.length ? (
+                      learnerQuestions.map((_, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setCurrentQuestion(index)}
+                          className={`aspect-square rounded-xl text-sm font-black ${
+                            currentQuestion === index
+                              ? "bg-emerald-700 text-white"
+                              : learnerAnswers[index]
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {index + 1}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="col-span-5 text-sm text-slate-500">Soal belum dimuat.</p>
+                    )}
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">
-                    ID {reading.id} | Kategori: {categoryMap.get(reading.categoryId) ?? "-"}
-                  </p>
                 </div>
-              ))}
-            </div>
-          </article>
 
-          <article className="soft-panel fade-in-up rounded-3xl p-4">
-            <h2 className="mb-3 text-xl font-extrabold text-slate-800">Kuis</h2>
-            <form onSubmit={(event) => saveQuiz(event).catch((error: Error) => showToast(error.message, "error"))}>
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Bacaan</label>
-              <select
-                value={quizForm.readingId}
-                onChange={(event) => setQuizForm((previous) => ({ ...previous, readingId: event.target.value }))}
-                className="mb-2 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-              >
-                <option value="">Pilih bacaan</option>
-                {readings.map((reading) => (
-                  <option key={reading.id} value={reading.id}>
-                    {reading.id} - {reading.title}
-                  </option>
-                ))}
-              </select>
+                <div className={`${panel} p-5`}>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Result</p>
+                  <div className="mt-4 grid place-items-center rounded-3xl bg-slate-950 p-6 text-white">
+                    <p className="text-5xl font-black">{scoreSummary}</p>
+                    <p className="mt-1 text-sm text-slate-300">Final score</p>
+                  </div>
+                  {score !== null && (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="font-black text-amber-950">Achievement progress</p>
+                      <p className="mt-1 text-sm text-amber-800">+{xpPreview} XP siap diklaim di modul achievements.</p>
+                    </div>
+                  )}
+                </div>
+              </aside>
+            </section>
+          )}
 
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Pertanyaan</label>
-              <textarea
-                rows={2}
-                value={quizForm.question}
-                onChange={(event) => setQuizForm((previous) => ({ ...previous, question: event.target.value }))}
-                className="mb-2 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
+          {activeView === "forum" && (
+            <ForumView studentId={studentId} apiBase={API_BASE_URL} />
+          )}
+
+          {activeView === "admin" && (
+            <section className="grid gap-4 xl:grid-cols-3 xl:items-start">
+              <AdminCategoryPanel
+                categories={categories}
+                categoryName={categoryName}
+                editingCategoryId={editingCategoryId}
+                setCategoryName={setCategoryName}
+                reset={() => {
+                  setEditingCategoryId(null);
+                  setCategoryName("");
+                }}
+                save={(event) => withLoading("save-category", async () => saveCategory(event))}
+                edit={(category) => {
+                  setEditingCategoryId(category.id);
+                  setCategoryName(category.name);
+                }}
+                remove={(category) =>
+                  withLoading("delete-category", async () => {
+                    await api(`/api/admin/categories/${category.id}`, { method: "DELETE" });
+                    showToast("Kategori dihapus");
+                    await bootstrapData();
+                  })
+                }
               />
 
-              {(["A", "B", "C", "D"] as const).map((key) => (
-                <div key={key}>
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Opsi {key}</label>
-                  <input
-                    value={quizForm[`option${key}`]}
-                    onChange={(event) =>
-                      setQuizForm((previous) => ({
-                        ...previous,
-                        [`option${key}`]: event.target.value,
-                      }))
-                    }
-                    className="mb-2 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-                  />
-                </div>
-              ))}
+              <AdminReadingPanel
+                readings={readings}
+                categories={categories}
+                categoryMap={categoryMap}
+                readingForm={readingForm}
+                setReadingForm={setReadingForm}
+                reset={() => {
+                  setEditingReadingId(null);
+                  setReadingForm({ title: "", content: "", categoryId: "" });
+                }}
+                save={(event) => withLoading("save-reading", async () => saveReading(event))}
+                edit={(reading) => {
+                  setEditingReadingId(reading.id);
+                  setReadingForm({
+                    title: reading.title,
+                    content: reading.content,
+                    categoryId: String(reading.categoryId),
+                  });
+                }}
+                remove={(reading) =>
+                  withLoading("delete-reading", async () => {
+                    await api(`/api/admin/readings/${reading.id}`, { method: "DELETE" });
+                    showToast("Bacaan dihapus");
+                    await bootstrapData();
+                  })
+                }
+              />
 
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Jawaban Benar</label>
-              <select
-                value={quizForm.correctAnswer}
-                onChange={(event) => setQuizForm((previous) => ({ ...previous, correctAnswer: event.target.value }))}
-                className="mb-3 w-full rounded-xl border border-[#d7d0c3] bg-white px-3 py-2"
-              >
-                <option value="">Pilih</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-              </select>
-
-              <div className="mb-3 flex gap-2">
-                <button type="submit" className="brand-btn rounded-xl px-4 py-2 font-bold text-white">
-                  Simpan
-                </button>
-                <button
-                  type="button"
-                  className="accent-btn rounded-xl px-4 py-2 font-bold text-white"
-                  onClick={() => {
-                    setEditingQuizId(null);
-                    setQuizForm({
-                      readingId: "",
-                      question: "",
-                      optionA: "",
-                      optionB: "",
-                      optionC: "",
-                      optionD: "",
-                      correctAnswer: "",
-                    });
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-            </form>
-
-            <div className="space-y-2">
-              {quizzes.map((quiz) => (
-                <div key={quiz.id} className="rounded-xl border border-[#d7d0c3] bg-white p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-bold text-slate-800">{quiz.question}</p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="accent-btn rounded-lg px-2 py-1 text-xs font-bold text-white"
-                        onClick={() => {
-                          setEditingQuizId(quiz.id);
-                          setQuizForm({
-                            readingId: String(quiz.readingId),
-                            question: quiz.question,
-                            optionA: quiz.optionA,
-                            optionB: quiz.optionB,
-                            optionC: quiz.optionC,
-                            optionD: quiz.optionD,
-                            correctAnswer: quiz.correctAnswer,
-                          });
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="danger-btn rounded-lg px-2 py-1 text-xs font-bold text-white"
-                        onClick={() =>
-                          api(`/api/admin/quizzes/${quiz.id}`, { method: "DELETE" })
-                            .then(() => {
-                              showToast("Kuis dihapus");
-                              return bootstrapData();
-                            })
-                            .catch((error: Error) => showToast(error.message, "error"))
-                        }
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-600">
-                    ID {quiz.id} | {readingMap.get(quiz.readingId) ?? `Reading ${quiz.readingId}`} | Benar: {quiz.correctAnswer}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
-      )}
+              <AdminQuizPanel
+                quizzes={quizzes}
+                readings={readings}
+                readingMap={readingMap}
+                quizForm={quizForm}
+                setQuizForm={setQuizForm}
+                reset={() => {
+                  setEditingQuizId(null);
+                  setQuizForm({
+                    readingId: "",
+                    question: "",
+                    optionA: "",
+                    optionB: "",
+                    optionC: "",
+                    optionD: "",
+                    correctAnswer: "",
+                  });
+                }}
+                save={(event) => withLoading("save-quiz", async () => saveQuiz(event))}
+                edit={(quiz) => {
+                  setEditingQuizId(quiz.id);
+                  setQuizForm({
+                    readingId: String(quiz.readingId),
+                    question: quiz.question,
+                    optionA: quiz.optionA,
+                    optionB: quiz.optionB,
+                    optionC: quiz.optionC,
+                    optionD: quiz.optionD,
+                    correctAnswer: quiz.correctAnswer,
+                  });
+                }}
+                remove={(quiz) =>
+                  withLoading("delete-quiz", async () => {
+                    await api(`/api/admin/quizzes/${quiz.id}`, { method: "DELETE" });
+                    showToast("Kuis dihapus");
+                    await bootstrapData();
+                  })
+                }
+              />
+            </section>
+          )}
+        </main>
+      </div>
 
       {toast && (
         <div
-          className={`fixed bottom-4 right-4 z-50 max-w-sm rounded-xl px-4 py-3 text-white shadow-xl ${
-            toast.type === "error" ? "bg-red-700" : "bg-emerald-700"
+          className={`fixed bottom-4 right-4 z-50 max-w-sm rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-2xl ${
+            toast.type === "error" ? "bg-rose-700" : "bg-emerald-700"
           }`}
         >
           {toast.message}
         </div>
       )}
     </div>
+  );
+};
+
+type ForumPost = {
+  id: number;
+  title: string;
+  content: string;
+  authorId: string;
+  createdAt: string;
+  replyCount?: number;
+};
+
+type ForumPostForm = {
+  title: string;
+  content: string;
+};
+
+const ForumView = ({ studentId, apiBase }: { studentId: string; apiBase: string }) => {
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [form, setForm] = useState<ForumPostForm>({ title: "", content: "" });
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
+
+  const forumApi = async <T,>(path: string, options: RequestInit = {}): Promise<T> => {
+    const base = apiBase.replace(/\/$/, "");
+    const headers = new Headers(options.headers ?? {});
+    if (!headers.has("Content-Type") && options.body) headers.set("Content-Type", "application/json");
+    if (studentId.trim()) headers.set("X-Student-Id", studentId.trim());
+    const res = await fetch(`${base}${path}`, { ...options, headers });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { const p = await res.json(); if (p.message) msg = p.message; } catch { msg = (await res.text()) || msg; }
+      throw new Error(msg);
+    }
+    if (res.status === 204) return null as T;
+    const text = await res.text();
+    return text ? (JSON.parse(text) as T) : (null as T);
+  };
+
+  const loadPosts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await forumApi<ForumPost[]>("/api/forum/posts");
+      setPosts(data ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal memuat forum.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const submitPost = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!form.title.trim() || !form.content.trim()) return;
+    setSubmitting(true);
+    try {
+      await forumApi<ForumPost>("/api/forum/posts", {
+        method: "POST",
+        body: JSON.stringify({ title: form.title.trim(), content: form.content.trim() }),
+      });
+      setForm({ title: "", content: "" });
+      await loadPosts();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal membuat post.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="grid gap-4 xl:grid-cols-[400px_1fr] xl:items-start">
+      {/* Panel kiri: form + list post */}
+      <div className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
+        <div className="shrink-0 p-5 pb-0">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Community</p>
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Forum Diskusi</h2>
+          <form onSubmit={submitPost} className="mt-4 space-y-3">
+            <input
+              value={form.title}
+              onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+              placeholder="Judul diskusi"
+              className={input}
+            />
+            <textarea
+              rows={3}
+              value={form.content}
+              onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
+              placeholder="Tulis pertanyaan atau diskusimu..."
+              className={input}
+            />
+            <div className="flex gap-2">
+              <button type="submit" className={primary} disabled={submitting || !form.title.trim() || !form.content.trim()}>
+                {submitting ? "Mengirim..." : "Kirim Post"}
+              </button>
+              <button type="button" className={secondary} onClick={loadPosts} disabled={loading}>
+                {loading ? "Memuat..." : "Refresh"}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">
+          {error && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+          {loading && !posts.length ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+              ))}
+            </div>
+          ) : posts.length ? (
+            <div className="space-y-2">
+              {posts.map((post) => (
+                <button
+                  key={post.id}
+                  type="button"
+                  onClick={() => setSelectedPost(post)}
+                  className={`w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 ${
+                    selectedPost?.id === post.id
+                      ? "border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100"
+                      : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="line-clamp-2 font-black leading-5 text-slate-900">{post.title}</p>
+                    {post.replyCount !== undefined && (
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">
+                        {post.replyCount} balasan
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-slate-500">{post.content}</p>
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
+                      {post.authorId}
+                    </span>
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
+                      {new Date(post.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Belum ada diskusi" description="Jadilah yang pertama membuka diskusi di forum ini." />
+          )}
+        </div>
+      </div>
+
+      {/* Panel kanan: detail post */}
+      <article className={`${panel} flex flex-col overflow-hidden xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
+        <div className="shrink-0 border-b border-slate-100 p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Detail Diskusi</p>
+          {selectedPost ? (
+            <>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{selectedPost.title}</h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                  {selectedPost.authorId}
+                </span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                  {new Date(selectedPost.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="mt-1 text-lg font-black text-slate-400">Pilih diskusi untuk melihat isinya</p>
+          )}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {selectedPost ? (
+            <div className="mx-auto w-full max-w-3xl px-5 py-8">
+              <p className="text-base leading-8 text-slate-700">{selectedPost.content}</p>
+              <ForumReplies postId={selectedPost.id} studentId={studentId} forumApi={forumApi} />
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center p-8">
+              <EmptyState title="Belum ada yang dipilih" description="Klik salah satu diskusi di panel kiri untuk membacanya." />
+            </div>
+          )}
+        </div>
+      </article>
+    </section>
+  );
+};
+
+const ForumReplies = ({
+  postId,
+  studentId,
+  forumApi,
+}: {
+  postId: number;
+  studentId: string;
+  forumApi: <T>(path: string, options?: RequestInit) => Promise<T>;
+}) => {
+  type Reply = { id: number; content: string; authorId: string; createdAt: string };
+  const [replies, setReplies] = useState<Reply[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadReplies = async () => {
+    setLoading(true);
+    try {
+      const data = await forumApi<Reply[]>(`/api/forum/posts/${postId}/replies`);
+      setReplies(data ?? []);
+    } catch {
+      // balasan kosong jika API belum siap
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setReplies([]);
+    setReplyText("");
+    loadReplies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postId]);
+
+  const submitReply = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!replyText.trim()) return;
+    setSubmitting(true);
+    try {
+      await forumApi<Reply>(`/api/forum/posts/${postId}/replies`, {
+        method: "POST",
+        body: JSON.stringify({ content: replyText.trim() }),
+      });
+      setReplyText("");
+      await loadReplies();
+    } catch {
+      // silent
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mt-8">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="h-px flex-1 bg-slate-200" />
+        <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+          {replies.length} Balasan
+        </span>
+        <div className="h-px flex-1 bg-slate-200" />
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100" />)}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {replies.map((reply) => (
+            <div key={reply.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm leading-7 text-slate-700">{reply.content}</p>
+              <div className="mt-2 flex gap-2">
+                <span className="text-[11px] font-semibold text-slate-400">{reply.authorId}</span>
+                <span className="text-[11px] text-slate-300">·</span>
+                <span className="text-[11px] text-slate-400">
+                  {new Date(reply.createdAt).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={submitReply} className="mt-5 space-y-2">
+        <textarea
+          rows={2}
+          value={replyText}
+          onChange={(e) => setReplyText(e.target.value)}
+          placeholder="Tulis balasan..."
+          className={input}
+        />
+        <button type="submit" className={primary} disabled={submitting || !replyText.trim()}>
+          {submitting ? "Mengirim..." : "Kirim Balasan"}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+const StatCard = ({ label, value, tone }: { label: string; value: number | string; tone: "emerald" | "amber" | "teal" | "purple" }) => {
+  const toneClass = {
+    emerald: "from-emerald-500 to-teal-400",
+    amber: "from-amber-400 to-orange-400",
+    teal: "from-teal-500 to-cyan-400",
+    purple: "from-purple-500 to-fuchsia-400",
+  }[tone];
+
+  return (
+    <div className={`${subtlePanel} group overflow-hidden p-4 transition hover:-translate-y-1 hover:shadow-lg`}>
+      <div className={`mb-4 h-1.5 w-16 rounded-full bg-gradient-to-r ${toneClass}`} />
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">{value}</p>
+    </div>
+  );
+};
+
+const EmptyState = ({ title, description }: { title: string; description: string }) => (
+  <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+    <p className="text-lg font-black text-slate-800">{title}</p>
+    <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+  </div>
+);
+
+const HIGHLIGHT_COLORS = [
+  "bg-emerald-100 text-emerald-900",
+  "bg-amber-100 text-amber-900",
+  "bg-violet-100 text-violet-900",
+  "bg-sky-100 text-sky-900",
+  "bg-rose-100 text-rose-900",
+];
+
+let highlightColorIndex = 0;
+const nextHighlight = () => HIGHLIGHT_COLORS[highlightColorIndex++ % HIGHLIGHT_COLORS.length];
+
+const MarkdownContent = ({ content }: { content: string }) => {
+  highlightColorIndex = 0;
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const blocks: ReactNode[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("```")) {
+      const lang = trimmed.slice(3).trim() || "code";
+      const codeLines: string[] = [];
+      index += 1;
+      while (index < lines.length && !lines[index].trim().startsWith("```")) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      index += 1;
+      blocks.push(
+        <div key={blocks.length} className="my-8 overflow-hidden rounded-2xl border border-slate-800 shadow-xl">
+          <div className="flex items-center gap-2 border-b border-slate-700 bg-slate-900 px-4 py-2.5">
+            <span className="h-3 w-3 rounded-full bg-rose-500/70" />
+            <span className="h-3 w-3 rounded-full bg-amber-400/70" />
+            <span className="h-3 w-3 rounded-full bg-emerald-500/70" />
+            <span className="ml-2 text-xs font-bold uppercase tracking-widest text-slate-400">{lang}</span>
+          </div>
+          <pre className="overflow-x-auto bg-slate-950 p-5 text-sm leading-7 text-emerald-100">
+            <code>{codeLines.join("\n")}</code>
+          </pre>
+        </div>
+      );
+      continue;
+    }
+
+    if (isTableStart(lines, index)) {
+      const tableLines: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith("|")) {
+        tableLines.push(lines[index].trim());
+        index += 1;
+      }
+      blocks.push(<MarkdownTable key={blocks.length} lines={tableLines} />);
+      continue;
+    }
+
+    if (trimmed.startsWith("### ")) {
+      blocks.push(
+        <h3 key={blocks.length} className="mb-3 mt-8 flex items-center gap-2 text-xl font-black tracking-tight text-slate-900">
+          <span className="h-5 w-1 rounded-full bg-emerald-400" />
+          {renderInline(trimmed.slice(4))}
+        </h3>
+      );
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("## ")) {
+      blocks.push(
+        <div key={blocks.length} className="mb-4 mt-12">
+          <h2 className="text-2xl font-black tracking-tight text-slate-950">
+            {renderInline(trimmed.slice(3))}
+          </h2>
+          <div className="mt-2 h-0.5 w-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-300 to-transparent" />
+        </div>
+      );
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      blocks.push(
+        <div key={blocks.length} className="mb-6 mt-2">
+          <h1 className="text-4xl font-black leading-tight tracking-tight text-slate-950">
+            {renderInline(trimmed.slice(2))}
+          </h1>
+          <div className="mt-3 h-1 w-24 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400" />
+        </div>
+      );
+      index += 1;
+      continue;
+    }
+
+    if (trimmed.startsWith(">")) {
+      const quoteLines: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith(">")) {
+        quoteLines.push(lines[index].trim().replace(/^>\s?/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <div key={blocks.length} className="my-7 overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-emerald-100 px-5 py-2.5">
+            <span className="text-base">💡</span>
+            <span className="text-xs font-black uppercase tracking-widest text-emerald-700">Insight dari Mentor</span>
+          </div>
+          <div className="px-5 py-4 text-base font-medium leading-7 text-emerald-950">
+            {quoteLines.map((quote, quoteIndex) => (
+              <p key={quoteIndex}>{renderInline(quote)}</p>
+            ))}
+          </div>
+        </div>
+      );
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^[-*]\s+/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <ul key={blocks.length} className="my-5 space-y-2.5 pl-1">
+          {items.map((item, itemIndex) => (
+            <li key={itemIndex} className="flex items-start gap-3 text-base leading-7 text-slate-700">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\d+\.\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+\.\s+/, ""));
+        index += 1;
+      }
+      blocks.push(
+        <ol key={blocks.length} className="my-5 space-y-2.5 pl-1">
+          {items.map((item, itemIndex) => (
+            <li key={itemIndex} className="flex items-start gap-3 text-base leading-7 text-slate-700">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-700">
+                {itemIndex + 1}
+              </span>
+              <span className="pt-0.5">{renderInline(item)}</span>
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    const paragraphLines = [trimmed];
+    index += 1;
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !isSpecialMarkdownLine(lines[index], lines, index)
+    ) {
+      paragraphLines.push(lines[index].trim());
+      index += 1;
+    }
+
+    blocks.push(
+      <p key={blocks.length} className="my-4 text-base leading-8 text-slate-600">
+        {renderInline(paragraphLines.join(" "))}
+      </p>
+    );
+  }
+
+  return <div className="max-w-none">{blocks}</div>;
+};
+
+const isSpecialMarkdownLine = (line: string, lines: string[], index: number) => {
+  const trimmed = line.trim();
+  return (
+    trimmed.startsWith("# ") ||
+    trimmed.startsWith("## ") ||
+    trimmed.startsWith("### ") ||
+    trimmed.startsWith("```") ||
+    trimmed.startsWith(">") ||
+    /^[-*]\s+/.test(trimmed) ||
+    /^\d+\.\s+/.test(trimmed) ||
+    isTableStart(lines, index)
+  );
+};
+
+const isTableStart = (lines: string[], index: number) => {
+  const current = lines[index]?.trim() ?? "";
+  const next = lines[index + 1]?.trim() ?? "";
+  return current.startsWith("|") && next.startsWith("|") && /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(next);
+};
+
+const MarkdownTable = ({ lines }: { lines: string[] }) => {
+  const [headerLine, , ...bodyLines] = lines;
+  const headers = splitTableRow(headerLine);
+  const rows = bodyLines.map(splitTableRow);
+
+  return (
+    <div className="my-6 overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+      <table className="w-full min-w-[560px] border-collapse bg-white text-left text-sm">
+        <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+          <tr>
+            {headers.map((header, headerIndex) => (
+              <th key={headerIndex} className="border-b border-slate-200 px-4 py-3 font-black">
+                {renderInline(header)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="odd:bg-white even:bg-slate-50">
+              {headers.map((_, cellIndex) => (
+                <td key={cellIndex} className="border-b border-slate-100 px-4 py-3 leading-6 text-slate-700">
+                  {renderInline(row[cellIndex] ?? "")}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const splitTableRow = (line: string) =>
+  line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+
+const renderInline = (text: string): ReactNode[] => {
+  const nodes: ReactNode[] = [];
+  // Order matters: ==highlight== before *italic*, ** before *
+  const pattern = /(\*\*[^*]+\*\*|==([^=]+)==|`[^`]+`|\*([^*]+)\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    const token = match[0];
+    if (token.startsWith("**")) {
+      const color = nextHighlight();
+      nodes.push(
+        <strong key={nodes.length} className={`rounded-md px-1 py-0.5 font-black ${color}`}>
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith("==")) {
+      nodes.push(
+        <mark key={nodes.length} className="rounded bg-amber-200 px-0.5 py-0 font-semibold text-amber-900 not-italic">
+          {match[2]}
+        </mark>
+      );
+    } else if (token.startsWith("`")) {
+      nodes.push(
+        <code key={nodes.length} className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[0.88em] font-bold text-emerald-800">
+          {token.slice(1, -1)}
+        </code>
+      );
+    } else {
+      nodes.push(
+        <em key={nodes.length} className="font-semibold not-italic text-violet-700">
+          {match[3]}
+        </em>
+      );
+    }
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+};
+
+type AdminCategoryPanelProps = {
+  categories: Category[];
+  categoryName: string;
+  editingCategoryId: number | null;
+  setCategoryName: (value: string) => void;
+  reset: () => void;
+  save: (event: FormEvent<HTMLFormElement>) => void;
+  edit: (category: Category) => void;
+  remove: (category: Category) => void;
+};
+
+const AdminCategoryPanel = ({
+  categories,
+  categoryName,
+  editingCategoryId,
+  setCategoryName,
+  reset,
+  save,
+  edit,
+  remove,
+}: AdminCategoryPanelProps) => (
+  <article className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
+    <div className="shrink-0 p-5 pb-0">
+      <PanelHeader eyebrow="Content Taxonomy" title="Kategori" />
+      <form onSubmit={save} className="mt-4">
+        <input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} placeholder="Nama kategori" className={input} />
+        <div className="mt-3 flex gap-2">
+          <button type="submit" className={primary}>
+            {editingCategoryId ? "Update" : "Tambah"}
+          </button>
+          <button type="button" className={secondary} onClick={reset}>
+            Reset
+          </button>
+        </div>
+      </form>
+    </div>
+    <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">
+      <div className="space-y-2">
+        {categories.map((category) => (
+          <AdminListItem key={category.id} title={category.name} meta={`ID ${category.id}`} onEdit={() => edit(category)} onDelete={() => remove(category)} />
+        ))}
+        {!categories.length && <EmptyState title="Belum ada kategori" description="Tambahkan kategori untuk mengelompokkan bacaan." />}
+      </div>
+    </div>
+  </article>
+);
+
+type AdminReadingPanelProps = {
+  readings: Reading[];
+  categories: Category[];
+  categoryMap: Map<number, string>;
+  readingForm: ReadingForm;
+  setReadingForm: (updater: (previous: ReadingForm) => ReadingForm) => void;
+  reset: () => void;
+  save: (event: FormEvent<HTMLFormElement>) => void;
+  edit: (reading: Reading) => void;
+  remove: (reading: Reading) => void;
+};
+
+const AdminReadingPanel = ({
+  readings,
+  categories,
+  categoryMap,
+  readingForm,
+  setReadingForm,
+  reset,
+  save,
+  edit,
+  remove,
+}: AdminReadingPanelProps) => (
+  <article className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
+    <div className="shrink-0 p-5 pb-0">
+      <PanelHeader eyebrow="Learning Material" title="Bacaan" />
+      <form onSubmit={save} className="mt-4 space-y-3">
+        <input value={readingForm.title} onChange={(event) => setReadingForm((previous) => ({ ...previous, title: event.target.value }))} placeholder="Judul bacaan" className={input} />
+        <select value={readingForm.categoryId} onChange={(event) => setReadingForm((previous) => ({ ...previous, categoryId: event.target.value }))} className={input}>
+          <option value="">Pilih kategori</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+        <textarea
+          rows={5}
+          value={readingForm.content}
+          onChange={(event) => setReadingForm((previous) => ({ ...previous, content: event.target.value }))}
+          placeholder="Konten bacaan"
+          className={input}
+        />
+        <div className="flex gap-2">
+          <button type="submit" className={primary}>
+            Simpan
+          </button>
+          <button type="button" className={secondary} onClick={reset}>
+            Reset
+          </button>
+        </div>
+      </form>
+    </div>
+    <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">
+      <div className="space-y-2">
+        {readings.map((reading) => (
+          <AdminListItem
+            key={reading.id}
+            title={reading.title}
+            meta={`${categoryMap.get(reading.categoryId) ?? "-"} · ${estimateReadingTime(reading.content)} menit`}
+            onEdit={() => edit(reading)}
+            onDelete={() => remove(reading)}
+          />
+        ))}
+        {!readings.length && <EmptyState title="Belum ada bacaan" description="Buat materi pertama agar learner bisa mulai belajar." />}
+      </div>
+    </div>
+  </article>
+);
+
+type AdminQuizPanelProps = {
+  quizzes: Quiz[];
+  readings: Reading[];
+  readingMap: Map<number, string>;
+  quizForm: QuizForm;
+  setQuizForm: (updater: (previous: QuizForm) => QuizForm) => void;
+  reset: () => void;
+  save: (event: FormEvent<HTMLFormElement>) => void;
+  edit: (quiz: Quiz) => void;
+  remove: (quiz: Quiz) => void;
+};
+
+const AdminQuizPanel = ({
+  quizzes,
+  readings,
+  readingMap,
+  quizForm,
+  setQuizForm,
+  reset,
+  save,
+  edit,
+  remove,
+}: AdminQuizPanelProps) => (
+  <article className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
+    <div className="shrink-0 p-5 pb-0">
+      <PanelHeader eyebrow="Assessment" title="Quiz" />
+      <form onSubmit={save} className="mt-4 space-y-3">
+        <select value={quizForm.readingId} onChange={(event) => setQuizForm((previous) => ({ ...previous, readingId: event.target.value }))} className={input}>
+          <option value="">Pilih bacaan</option>
+          {readings.map((reading) => (
+            <option key={reading.id} value={reading.id}>
+              {reading.title}
+            </option>
+          ))}
+        </select>
+        <textarea
+          rows={3}
+          value={quizForm.question}
+          onChange={(event) => setQuizForm((previous) => ({ ...previous, question: event.target.value }))}
+          placeholder="Pertanyaan"
+          className={input}
+        />
+        {optionKeys.map((key) => (
+          <input
+            key={key}
+            value={quizForm[`option${key}`]}
+            onChange={(event) => setQuizForm((previous) => ({ ...previous, [`option${key}`]: event.target.value }))}
+            placeholder={`Opsi ${key}`}
+            className={input}
+          />
+        ))}
+        <select value={quizForm.correctAnswer} onChange={(event) => setQuizForm((previous) => ({ ...previous, correctAnswer: event.target.value }))} className={input}>
+          <option value="">Jawaban benar</option>
+          {optionKeys.map((key) => (
+            <option key={key} value={key}>
+              {key}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-2">
+          <button type="submit" className={primary}>
+            Simpan
+          </button>
+          <button type="button" className={secondary} onClick={reset}>
+            Reset
+          </button>
+        </div>
+      </form>
+    </div>
+    <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">
+      <div className="space-y-2">
+        {quizzes.map((quiz) => (
+          <AdminListItem
+            key={quiz.id}
+            title={quiz.question}
+            meta={`${readingMap.get(quiz.readingId) ?? `Reading ${quiz.readingId}`} · Jawaban ${quiz.correctAnswer}`}
+            onEdit={() => edit(quiz)}
+            onDelete={() => remove(quiz)}
+          />
+        ))}
+        {!quizzes.length && <EmptyState title="Belum ada soal" description="Tambahkan pertanyaan untuk bacaan yang sudah tersedia." />}
+      </div>
+    </div>
+  </article>
+);
+
+const PanelHeader = ({ eyebrow, title }: { eyebrow: string; title: string }) => (
+  <div>
+    <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
+    <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{title}</h2>
+  </div>
+);
+
+const AdminListItem = ({
+  title,
+  meta,
+  onEdit,
+  onDelete,
+}: {
+  title: string;
+  meta: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) => (
+  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+    <p className="line-clamp-2 font-black leading-6 text-slate-900">{title}</p>
+    <p className="mt-1 text-xs text-slate-500">{meta}</p>
+    <div className="mt-3 flex gap-2">
+      <button type="button" className={`${secondary} px-3 py-1.5 text-xs`} onClick={onEdit}>
+        Edit
+      </button>
+      <button type="button" className={danger} onClick={onDelete}>
+        Hapus
+      </button>
+    </div>
+  </div>
+);
+
+const READING_ICONS = ["📖", "📝", "🔬", "💡", "🌐", "🎯", "🧠", "📚", "⚡", "🔭"];
+
+const ReadingPathCard = ({
+  reading,
+  index,
+  category,
+  quizCount,
+  selected,
+  onSelect,
+}: {
+  reading: Reading;
+  index: number;
+  category: string;
+  quizCount: number;
+  selected: boolean;
+  onSelect: () => void;
+}) => {
+  const icon = READING_ICONS[index % READING_ICONS.length];
+  const minutes = estimateReadingTime(reading.content);
+  const chips = [`${minutes} menit baca`, `${quizCount} soal`, category];
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 ${
+        selected
+          ? "border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100"
+          : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${selected ? "bg-emerald-100" : "bg-slate-100"}`}>
+            {icon}
+          </span>
+          <div className="min-w-0">
+            <p className="line-clamp-2 font-black leading-5 text-slate-900">{reading.title}</p>
+            <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-slate-500">
+              {reading.content.slice(0, 90).replace(/[#*`>]/g, "").trim()}
+              {reading.content.length > 90 ? "…" : ""}
+            </p>
+          </div>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+            selected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {selected ? "Dipilih" : `#${index + 1}`}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {chips.map((chip) => (
+          <span
+            key={chip}
+            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+              selected ? "border-emerald-200 bg-white text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"
+            }`}
+          >
+            {chip}
+          </span>
+        ))}
+      </div>
+    </button>
   );
 };
