@@ -75,3 +75,51 @@ body {
     transform: translateY(0);
   }
 }
+
+.soft-panel {
+  border: 1px solid rgb(226 232 240);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+}
+
+.brand-btn {
+  background: #047857;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.brand-btn:hover {
+  background: #065f46;
+}
+
+.accent-btn {
+  background: #0f766e;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.accent-btn:hover {
+  background: #115e59;
+}
+
+.danger-btn {
+  background: #be123c;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.danger-btn:hover {
+  background: #9f1239;
+}
+
+.fade-in-up {
+  animation: fade-in-up 280ms ease both;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
