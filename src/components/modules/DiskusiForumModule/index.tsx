@@ -2,8 +2,10 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 
-const API_BASE_URL = "http://18.207.58.155:8085/api/comments";
-const REACTIONS_API_BASE_URL = "http://18.207.58.155:8085/api/reactions";
+const API_BASE_PATH = "/api/diskusi-forum";
+
+const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
+const REACTIONS_API_BASE_URL = `${API_BASE_PATH}/reactions`;
 
 type ReactionType = "API" | "ROKET" | "TERTAWA" | "CONFETI" | "EMOT_BERTANYA";
 
@@ -60,7 +62,7 @@ export const DiskusiForumModule = ({
 
   const fetchComments = useCallback(async () => {
     try {
-      const url = new URL(API_BASE_URL);
+      const url = new URL(COMMENTS_API_BASE_URL, window.location.origin);
       url.searchParams.set("readingId", readingId);
 
       const res = await fetch(url.toString());
@@ -117,7 +119,7 @@ export const DiskusiForumModule = ({
 
   const postComment = async (content: string, parentId: string | null) => {
     try {
-      const res = await fetch(API_BASE_URL, {
+      const res = await fetch(COMMENTS_API_BASE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,7 +140,7 @@ export const DiskusiForumModule = ({
 
   const handleUpdate = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/${id}`, {
+      const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: editContent }),
@@ -152,11 +154,11 @@ export const DiskusiForumModule = ({
       setErrorMsg(message);
     }
   };
-
+  //
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus komentar ini?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/${id}`, {
+      const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Gagal menghapus komentar");

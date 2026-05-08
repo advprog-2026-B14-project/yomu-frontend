@@ -1150,7 +1150,7 @@ const ForumView = ({ studentId, apiBase }: { studentId: string; apiBase: string 
           {selectedPost ? (
             <div className="mx-auto w-full max-w-3xl px-5 py-8">
               <p className="text-base leading-8 text-slate-700">{selectedPost.content}</p>
-              <ForumReplies postId={selectedPost.id} studentId={studentId} forumApi={forumApi} />
+              <ForumReplies postId={selectedPost.id} forumApi={forumApi} />
             </div>
           ) : (
             <div className="flex h-full items-center justify-center p-8">
@@ -1165,11 +1165,9 @@ const ForumView = ({ studentId, apiBase }: { studentId: string; apiBase: string 
 
 const ForumReplies = ({
   postId,
-  studentId,
   forumApi,
 }: {
   postId: number;
-  studentId: string;
   forumApi: <T>(path: string, options?: RequestInit) => Promise<T>;
 }) => {
   type Reply = { id: number; content: string; authorId: string; createdAt: string };
@@ -1294,11 +1292,7 @@ const HIGHLIGHT_COLORS = [
   "bg-rose-100 text-rose-900",
 ];
 
-let highlightColorIndex = 0;
-const nextHighlight = () => HIGHLIGHT_COLORS[highlightColorIndex++ % HIGHLIGHT_COLORS.length];
-
 const MarkdownContent = ({ content }: { content: string }) => {
-  highlightColorIndex = 0;
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let index = 0;
@@ -1542,7 +1536,7 @@ const renderInline = (text: string): ReactNode[] => {
 
     const token = match[0];
     if (token.startsWith("**")) {
-      const color = nextHighlight();
+      const color = HIGHLIGHT_COLORS[nodes.length % HIGHLIGHT_COLORS.length];
       nodes.push(
         <strong key={nodes.length} className={`rounded-md px-1 py-0.5 font-black ${color}`}>
           {token.slice(2, -2)}
