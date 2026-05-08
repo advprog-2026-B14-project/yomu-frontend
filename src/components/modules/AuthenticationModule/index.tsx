@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { saveAuth, AuthUser } from "@/lib/auth";
 
 export const LoginModule = () => {
   const [formData, setFormData] = useState({
@@ -20,7 +21,7 @@ export const LoginModule = () => {
     setSuccessMessage(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+      const response = await fetch(`/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -30,8 +31,34 @@ export const LoginModule = () => {
 
       if (response.ok) {
         const result = await response.json();
-        localStorage.setItem("token", result.access_token);
-        setSuccessMessage("Login berhasil!");
+        const token = result.access_token;
+
+        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        const userId = payload.sub;
+
+        const userRes = await fetch(`/api/user/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const userData = await userRes.json();
+
+        const user: AuthUser = {
+          id: userData.id,
+          email: userData.email,
+          role: userData.role,
+          fullName: userData.fullName,
+          username: userData.username,
+        };
+
+        saveAuth(token, user);
+
+        document.cookie = `token=${token}; path=/; max-age=${60 * 60 * 24 * 7}`;
+        document.cookie = `user=${JSON.stringify(user)}; path=/; max-age=${60 * 60 * 24 * 7}`;
+
+        if (user.role === "ADMIN") {
+          window.location.href = "/admin";
+        } else {
+          window.location.href = "/dashboard";
+        }
       } else {
         let message = "Login gagal. Email/Username atau password salah.";
 
@@ -118,7 +145,7 @@ export const RegisterModule = () => {
     setSuccessMessage(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
+      const response = await fetch(`/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
