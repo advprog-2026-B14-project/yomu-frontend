@@ -4,6 +4,7 @@ const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:8080";
 
 const hopByHopHeaders = new Set([
   "connection",
+  "content-encoding",
   "content-length",
   "host",
   "keep-alive",
@@ -25,6 +26,7 @@ const proxy = async (
 
   const headers = new Headers(request.headers);
   hopByHopHeaders.forEach((header) => headers.delete(header));
+  headers.delete("accept-encoding");
 
   const init: RequestInit = {
     method: request.method,
