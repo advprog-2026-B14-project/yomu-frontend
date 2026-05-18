@@ -738,28 +738,30 @@ export const BacaanKuisModule = () => {
                   <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${quizProgress}%` }} />
                 </div>
 
-                {score !== null ? (
-                  <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-6 text-center">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Quiz Completed</p>
-                    <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Hasil belajarmu sudah tercatat</h3>
-                    <div className="mx-auto mt-6 grid h-44 w-44 place-items-center rounded-full bg-slate-950 text-white shadow-2xl shadow-emerald-900/15">
+                {score !== null && (
+                  <div className="mb-5 overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-5">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                       <div>
-                        <p className="text-5xl font-black">{scoreSummary}</p>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Quiz Completed</p>
+                        <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Hasil belajarmu sudah tercatat</h3>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          Mode review aktif. Jawaban yang sudah dipilih tetap terlihat, tetapi tidak bisa diubah lagi.
+                        </p>
+                      </div>
+                      <div className="grid min-w-32 place-items-center rounded-2xl bg-slate-950 px-5 py-4 text-white">
+                        <p className="text-3xl font-black">{scoreSummary}</p>
                         <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-300">Score</p>
                       </div>
                     </div>
-                    <div className="mx-auto mt-6 h-3 max-w-md rounded-full bg-slate-200">
+                    <div className="mt-4 h-3 rounded-full bg-slate-200">
                       <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${Math.min(100, normalizedScorePercent)}%` }} />
                     </div>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      Kamu mendapat {normalizedScorePercent}% pemahaman pada kuis ini dan memperoleh estimasi {xpPreview} XP.
-                    </p>
-                    <div className="mx-auto mt-5 grid max-w-2xl gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 text-left sm:grid-cols-3">
+                    <div className="mt-4 grid gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:grid-cols-3">
                       <MiniMetric label="League Accuracy" value={`${leagueStats.accuracy}%`} />
                       <MiniMetric label="Correct Answer" value={`${leagueStats.correctAnswers}/${learnerQuestions.length}`} />
                       <MiniMetric label="Frequency" value={leagueStats.frequency} />
                     </div>
-                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                    <div className="mt-4 flex flex-wrap gap-3">
                       <button
                         type="button"
                         className={primary}
@@ -768,30 +770,27 @@ export const BacaanKuisModule = () => {
                           setLearnerQuestions([]);
                           setLearnerQuizIds([]);
                           setLearnerAnswers({});
+                          setScore(null);
                         }}
                       >
                         Kembali ke Bacaan
                       </button>
-                      <button
-                        type="button"
-                        className={secondary}
-                        onClick={() => {
-                          setScore(null);
-                          setLearnerAnswers({});
-                          setCurrentQuestion(0);
-                        }}
-                      >
+                      <button type="button" className={secondary} onClick={() => setCurrentQuestion(0)}>
                         Lihat Soal Lagi
                       </button>
                     </div>
                   </div>
-                ) : activeQuestion ? (
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                )}
+
+                {activeQuestion ? (
+                  <div className={`rounded-3xl border p-5 ${score !== null ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50"}`}>
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600 shadow-sm">
                         Pertanyaan {currentQuestion + 1}/{learnerQuestions.length}
                       </span>
-                      <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-black text-purple-700">Medium</span>
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${score !== null ? "bg-emerald-100 text-emerald-700" : "bg-purple-100 text-purple-700"}`}>
+                        {score !== null ? "Review" : "Medium"}
+                      </span>
                     </div>
                     <h3 className="text-xl font-black leading-8 text-slate-950">{activeQuestion.question}</h3>
                     <div className="mt-5 grid gap-3">
@@ -800,15 +799,16 @@ export const BacaanKuisModule = () => {
                         return (
                           <label
                             key={key}
-                            className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:bg-white ${
+                            className={`flex items-start gap-3 rounded-2xl border p-4 transition ${
                               selected ? "border-emerald-500 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white"
-                            }`}
+                            } ${score !== null ? "cursor-default opacity-90" : "cursor-pointer hover:-translate-y-0.5 hover:bg-white"}`}
                           >
                             <input
                               type="radio"
                               name={`answer-${currentQuestion}`}
                               value={key}
                               checked={selected}
+                              disabled={score !== null}
                               onChange={(event) =>
                                 setLearnerAnswers((previous) => ({
                                   ...previous,
@@ -836,7 +836,7 @@ export const BacaanKuisModule = () => {
                       type="button"
                       className={secondary}
                       onClick={() => setCurrentQuestion((value) => Math.max(0, value - 1))}
-                      disabled={score !== null || !learnerQuestions.length || currentQuestion === 0}
+                      disabled={!learnerQuestions.length || currentQuestion === 0}
                     >
                       Sebelumnya
                     </button>
@@ -844,7 +844,7 @@ export const BacaanKuisModule = () => {
                       type="button"
                       className={secondary}
                       onClick={() => setCurrentQuestion((value) => Math.min(learnerQuestions.length - 1, value + 1))}
-                      disabled={score !== null || !learnerQuestions.length || currentQuestion >= learnerQuestions.length - 1}
+                      disabled={!learnerQuestions.length || currentQuestion >= learnerQuestions.length - 1}
                     >
                       Berikutnya
                     </button>
