@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:8080";
 
 const hopByHopHeaders = new Set([
+  "access-control-request-headers",
+  "access-control-request-method",
   "connection",
   "content-encoding",
   "content-length",
@@ -27,6 +29,7 @@ const proxy = async (
   const headers = new Headers(request.headers);
   hopByHopHeaders.forEach((header) => headers.delete(header));
   headers.delete("accept-encoding");
+  headers.delete("origin");
 
   const init: RequestInit = {
     method: request.method,
