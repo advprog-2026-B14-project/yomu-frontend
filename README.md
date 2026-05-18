@@ -25,6 +25,20 @@ group/
 - **Diskusi Forum Service**: dikonsumsi frontend melalui REST endpoint komentar dan reaksi.
 - **Internal statistik/liga**: backend Bacaan dan Kuis menyediakan endpoint statistik `GET /api/internal/league/statistics/students/{studentId}` untuk kebutuhan modul lain.
 
+## Tech Stack Ringkas
+
+| Area | Stack |
+| --- | --- |
+| Frontend | Next.js, Tailwind CSS |
+| Backend | Spring Boot |
+| Database | PostgreSQL di Supabase |
+| Code Analysis | SonarCloud, JaCoCo coverage, ESLint Next.js |
+| Performance | k6/APDEX, Lighthouse, Java Flight Recorder |
+| Monitoring | Spring Boot Actuator, Prometheus, Grafana, Supabase dashboard |
+| Deployment | AWS backend, Vercel frontend |
+
+Catatan: backend direncanakan migrasi ke Fly.io setelah kebutuhan final lain selesai.
+
 ## Menjalankan Frontend
 
 ```powershell
@@ -171,6 +185,19 @@ Bedakan:
 
 - **coverage testing**: dijalankan oleh Gradle + JaCoCo untuk mengukur cakupan test.
 - **performance profiling**: mengukur latency, throughput, CPU, memory, dan bottleneck runtime.
+
+## Performance dan Monitoring Final
+
+Panduan bukti final untuk APDEX, Lighthouse, Clarity, profiling, dan monitoring modul Bacaan dan Kuis ada di [docs/PERFORMANCE_FINAL_GUIDE.md](docs/PERFORMANCE_FINAL_GUIDE.md).
+
+Yang sudah disiapkan:
+
+- Spring Boot Actuator + Prometheus metrics di backend Bacaan dan Kuis.
+- Docker Compose Prometheus/Grafana di `monitoring/`.
+- Dashboard Grafana `Yomu Bacaan dan Kuis Observability`.
+- Script k6 APDEX di `docs/k6-bacaan-kuis-apdex.js`.
+- Runner Lighthouse di `scripts/run-lighthouse-bacaan-kuis.ps1`.
+- Hook Microsoft Clarity via `NEXT_PUBLIC_CLARITY_PROJECT_ID`.
 
 ## Catatan Implementasi Frontend
 
