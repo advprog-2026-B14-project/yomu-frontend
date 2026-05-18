@@ -35,9 +35,9 @@ group/
 | Code Analysis | SonarCloud, JaCoCo coverage, ESLint Next.js |
 | Performance | k6/APDEX, Lighthouse, Java Flight Recorder |
 | Monitoring | Spring Boot Actuator, Prometheus, Grafana, Supabase dashboard |
-| Deployment | AWS backend, Vercel frontend |
+| Deployment | Fly.io backend, Vercel frontend |
 
-Catatan: backend direncanakan migrasi ke Fly.io setelah kebutuhan final lain selesai.
+Catatan: backend disiapkan ke Fly.io agar Vercel dapat mengakses API melalui HTTPS.
 
 ## Menjalankan Frontend
 

@@ -16,12 +16,12 @@ Scope bukti individu:
 | Area | Stack Saat Ini | Catatan Bukti Final |
 | --- | --- | --- |
 | Frontend | Next.js, Tailwind CSS | Deploy di Vercel; Lighthouse dan Clarity diarahkan ke halaman `/bacaan-kuis`. |
-| Backend | Spring Boot | Backend Bacaan dan Kuis saat ini diarahkan ke AWS; rencana migrasi ke Fly.io dilakukan setelah target final lain selesai. |
+| Backend | Spring Boot | Backend Bacaan dan Kuis disiapkan untuk Fly.io agar tersedia HTTPS endpoint yang bisa dipakai Vercel. |
 | Database | PostgreSQL di Supabase | Monitoring database bisa memakai Supabase dashboard dan metrics HikariCP dari backend. |
 | Code Analysis | SonarCloud, JaCoCo, ESLint | SonarCloud/JaCoCo untuk backend, ESLint untuk frontend. |
 | Performance | k6 APDEX, Lighthouse, Java Flight Recorder | Bukti berupa report markdown/json/html dan hasil before-after commit. |
 | Monitoring | Spring Boot Actuator, Prometheus, Grafana, Supabase dashboard | Bukti berupa dashboard Grafana backend dan dashboard Supabase database. |
-| Deployment | AWS backend, Vercel frontend | Untuk skala 4 deployment, bukti perlu menunjukkan deploy otomatis dan prosedur lanjutan; Fly.io dicatat sebagai rencana migrasi, bukan bukti sampai diterapkan. |
+| Deployment | Fly.io backend, Vercel frontend | Untuk skala 4 deployment, bukti perlu menunjukkan deploy otomatis dan prosedur lanjutan seperti rollback release. |
 
 ## 1. Before-After Commit
 
@@ -83,6 +83,19 @@ Metrik yang perlu ditunjukkan:
 - JVM memory.
 - Database connection pool active/idle/pending.
 - Database connection timeout/error.
+
+Jika backend sudah deploy di Fly.io, Prometheus lokal bisa diarahkan ke HTTPS Fly.io dengan mengganti target scrape atau memakai endpoint langsung:
+
+```text
+https://yomu-bacaan-dan-kuis.fly.dev/actuator/prometheus
+```
+
+Untuk Vercel frontend, set env:
+
+```text
+BACKEND_API_URL=https://yomu-bacaan-dan-kuis.fly.dev
+NEXT_PUBLIC_API_BASE_URL=/api/backend
+```
 
 ## 3. APDEX dengan k6
 

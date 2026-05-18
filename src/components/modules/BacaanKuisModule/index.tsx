@@ -140,6 +140,20 @@ export const BacaanKuisModule = () => {
     : 0;
   const estimatedMinutes = readingView?.content ? estimateReadingTime(readingView.content) : 0;
   const xpPreview = Math.max(40, learnerQuestions.length * 20);
+  const correctAnswerCount =
+    score === null || !learnerQuestions.length
+      ? 0
+      : scoreIsPercentage
+        ? Math.round((Math.min(score, 100) / 100) * learnerQuestions.length)
+        : Math.min(score, learnerQuestions.length);
+  const leagueStats = {
+    accuracy: normalizedScorePercent,
+    completedQuiz: score === null ? 0 : 1,
+    answeredQuestions: answeredCount,
+    correctAnswers: correctAnswerCount,
+    frequency: score === null ? "Belum submit" : `${learnerQuestions.length} jawaban/sesi`,
+    status: score === null ? "Menunggu submit quiz" : "Siap dikirim ke Modul Liga",
+  };
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -174,14 +188,12 @@ export const BacaanKuisModule = () => {
 
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
-      try {
-        const payload = await response.json();
-        if (payload.message) {
-          message = payload.message;
-        }
-      } catch {
-        const bodyText = await response.text();
-        if (bodyText) {
+      const bodyText = await response.text();
+      if (bodyText) {
+        try {
+          const payload = JSON.parse(bodyText) as { message?: string };
+          message = payload.message ?? bodyText;
+        } catch {
           message = bodyText;
         }
       }
@@ -547,6 +559,29 @@ export const BacaanKuisModule = () => {
             <StatCard label="Quiz Progress" value={`${quizProgress}%`} tone="purple" />
           </section>
 
+          <section className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className={`${subtlePanel} p-4`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Statistik Liga</p>
+                  <h2 className="mt-1 text-xl font-black tracking-tight">Akurasi dan frekuensi belajar</h2>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                <MiniMetric label="Accuracy" value={`${leagueStats.accuracy}%`} />
+                <MiniMetric label="Correct" value={`${leagueStats.correctAnswers}/${learnerQuestions.length || 0}`} />
+                <MiniMetric label="Frequency" value={leagueStats.frequency} />
+                <MiniMetric label="Completed" value={leagueStats.completedQuiz} />
+              </div>
+            </div>
+            <div className={`${subtlePanel} p-4`}>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">League Payload</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {leagueStats.status}. Data yang disiapkan: studentId, readingId, akurasi, jumlah jawaban benar, dan frekuensi sesi.
+              </p>
+            </div>
+          </section>
+
           <div className="mb-4 grid gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden md:grid-cols-4">
             {[
               ["learn", "Bacaan"],
@@ -719,6 +754,11 @@ export const BacaanKuisModule = () => {
                     <p className="mt-4 text-sm leading-6 text-slate-600">
                       Kamu mendapat {normalizedScorePercent}% pemahaman pada kuis ini dan memperoleh estimasi {xpPreview} XP.
                     </p>
+                    <div className="mx-auto mt-5 grid max-w-2xl gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 text-left sm:grid-cols-3">
+                      <MiniMetric label="League Accuracy" value={`${leagueStats.accuracy}%`} />
+                      <MiniMetric label="Correct Answer" value={`${leagueStats.correctAnswers}/${learnerQuestions.length}`} />
+                      <MiniMetric label="Frequency" value={leagueStats.frequency} />
+                    </div>
                     <div className="mt-6 flex flex-wrap justify-center gap-3">
                       <button
                         type="button"
@@ -1276,6 +1316,13 @@ const StatCard = ({ label, value, tone }: { label: string; value: number | strin
     </div>
   );
 };
+
+const MiniMetric = ({ label, value }: { label: string; value: number | string }) => (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+    <p className="mt-1 text-base font-black text-slate-950">{value}</p>
+  </div>
+);
 
 const EmptyState = ({ title, description }: { title: string; description: string }) => (
   <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
