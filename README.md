@@ -1,204 +1,122 @@
 # Yomu Learning Platform
 
-Yomu adalah frontend Next.js untuk platform pembelajaran berbasis microservices. Fokus implementasi saat ini ada pada modul **Bacaan dan Kuis**, dengan integrasi ke backend Spring Boot `yomu-bacaan-dan-kuis` dan kontrak integrasi lintas service di [API_CONTRACT.md](API_CONTRACT.md).
+Yomu adalah platform pembelajaran berbasis web untuk membaca materi, mengerjakan kuis, berdiskusi, melihat pencapaian, dan berinteraksi dengan sistem liga. Repository ini berisi frontend Next.js dan backend Spring Boot untuk modul Bacaan dan Kuis.
 
-Dokumentasi VPIC yang lebih lengkap, termasuk component diagram, code diagram, design pattern, status gRPC/RabbitMQ, integrasi, dan profiling, tersedia di [docs/VPIC_ARCHITECTURE.md](docs/VPIC_ARCHITECTURE.md).
+Fokus kontribusi modul Bacaan dan Kuis ada pada pengelolaan bacaan, quiz attempt learner, review hasil kuis, statistik akurasi, dan data yang dapat dikonsumsi modul lain.
 
 ## Struktur Repo
 
 ```text
 group/
-├─ src/                              # Frontend Next.js App Router
-│  ├─ app/                           # Route pages
-│  └─ components/modules/            # Modul UI per domain
-├─ yomu-bacaan-dan-kuis/             # Backend Spring Boot modul Bacaan dan Kuis
-├─ API_CONTRACT.md                   # Kontrak REST antar modul/service
-├─ docs/                             # Dokumentasi VPIC dan arsitektur
-├─ package.json                      # Script frontend
+├─ src/
+│  ├─ app/                    route Next.js
+│  └─ components/modules/     UI per modul
+├─ yomu-bacaan-dan-kuis/      backend Spring Boot Bacaan dan Kuis
+├─ docs/                      catatan arsitektur dan performance evidence
+├─ monitoring/                Prometheus dan Grafana lokal
+├─ public/                    asset frontend
 └─ README.md
 ```
 
 ## Modul Utama
 
-- **Frontend Next.js**: halaman `/bacaan-kuis` memakai `src/components/modules/BacaanKuisModule/index.tsx`.
-- **Backend Bacaan dan Kuis**: Spring Boot, Java 21, JPA, PostgreSQL/Supabase, H2 untuk test.
-- **Diskusi Forum Service**: dikonsumsi frontend melalui REST endpoint komentar dan reaksi.
-- **Internal statistik/liga**: backend Bacaan dan Kuis menyediakan endpoint statistik `GET /api/internal/league/statistics/students/{studentId}` untuk kebutuhan modul lain.
+- **Bacaan dan Kuis**  
+  Mengelola kategori, bacaan, soal kuis, pengerjaan kuis learner, mode review setelah submit, dan statistik akurasi.
 
-## Tech Stack Ringkas
+- **Diskusi Forum**  
+  Menggunakan service forum melalui REST API untuk komentar dan reaksi.
+
+- **Achievement dan Liga**  
+  Berperan sebagai modul pendukung pembelajaran. Bacaan dan Kuis menyediakan statistik yang dapat digunakan untuk kebutuhan liga.
+
+- **Authentication**  
+  Frontend memiliki halaman login/register. Backend Bacaan dan Kuis sendiri sudah menyiapkan proteksi role `ADMIN`, `LEARNER`, dan endpoint internal service-to-service.
+
+## Tech Stack
 
 | Area | Stack |
 | --- | --- |
 | Frontend | Next.js, Tailwind CSS |
-| Backend | Spring Boot |
-| Database | PostgreSQL di Supabase |
-| Code Analysis | SonarCloud, JaCoCo coverage, ESLint Next.js |
-| Performance | k6/APDEX, Lighthouse, Java Flight Recorder |
-| Monitoring | Spring Boot Actuator, Prometheus, Grafana, Supabase dashboard |
-| Deployment | Fly.io backend, Vercel frontend |
+| Backend Bacaan dan Kuis | Spring Boot, Java 21 |
+| Database | PostgreSQL/Supabase |
+| Quality | ESLint, JaCoCo, SonarCloud |
+| Observability | Actuator, Prometheus, Grafana |
+| Performance Evidence | APDEX, Lighthouse, Java Flight Recorder, Clarity |
+| Deployment | Vercel untuk frontend, Fly.io untuk backend |
 
-Catatan: backend disiapkan ke Fly.io agar Vercel dapat mengakses API melalui HTTPS.
+## Design dan Implementasi
 
-## Menjalankan Frontend
+Frontend dibagi per modul agar UI dan logic tiap domain tidak bercampur. Modul Bacaan dan Kuis menggunakan data backend melalui proxy API Next.js, sehingga konfigurasi backend tetap berada di sisi server.
 
-```powershell
-cd C:\adpro\IdeaProjects\group
-npm install
-npm run dev
-```
+Backend Bacaan dan Kuis memakai layered architecture:
 
-Frontend berjalan di:
+- Controller untuk boundary HTTP.
+- Service untuk business logic.
+- Repository untuk akses database.
+- DTO untuk request dan response.
+- Entity untuk representasi persistence.
 
-```text
-http://localhost:3000
-```
+Struktur ini menjaga prinsip SOLID secara praktis: controller tidak memegang query database, service tidak terikat detail HTTP, dan repository tetap fokus pada persistence. Dependency injection dipakai lewat constructor agar dependency eksplisit dan mudah diuji.
 
-Halaman Bacaan dan Kuis:
+## Integrasi REST API
 
-```text
-http://localhost:3000/bacaan-kuis
-```
+Audit kode menunjukkan integrasi antar modul saat ini memakai REST API. Pilihan ini sesuai dengan kebutuhan project karena alur utamanya masih request-response: mengambil daftar bacaan, memulai kuis, mengambil soal, submit jawaban, membaca statistik, serta mengambil komentar forum.
 
-Environment frontend:
-
-```properties
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-```
-
-Jika tidak diset, modul Bacaan dan Kuis memakai fallback `http://localhost:8080`.
-
-## Menjalankan Backend Bacaan dan Kuis
-
-```powershell
-cd C:\adpro\IdeaProjects\group\yomu-bacaan-dan-kuis
-.\gradlew.bat bootRun
-```
-
-Backend berjalan di:
+Contoh integrasi Bacaan dan Kuis:
 
 ```text
-http://localhost:8080
+GET  /api/learner/readings/{readingId}
+POST /api/learner/readings/{readingId}/quiz/start
+GET  /api/learner/readings/{readingId}/quiz
+POST /api/learner/readings/{readingId}/quiz/submit
+GET  /api/internal/league/statistics/students/{studentId}
 ```
 
-Contoh `.env` backend:
-
-```properties
-DB_URL=jdbc:postgresql://localhost:5432/postgres
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-DB_SCHEMA=learning_mod
-PORT=8080
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-```
-
-Jika diarahkan ke Supabase PostgreSQL, data bacaan, kategori, kuis, dan attempt berasal dari Supabase melalui backend.
-
-## Testing dan Coverage
-
-Frontend:
-
-```powershell
-npm run lint
-npm run build
-```
-
-Backend:
-
-```powershell
-cd C:\adpro\IdeaProjects\group\yomu-bacaan-dan-kuis
-.\gradlew.bat test
-```
-
-Backend test memakai H2 in-memory dari `src/test/resources/application.properties`, sehingga tidak membutuhkan koneksi Supabase.
-
-Konfigurasi JaCoCo ada di `yomu-bacaan-dan-kuis/build.gradle.kts`:
-
-- global coverage minimum: `0.80`
-- class line coverage minimum: `0.70`
-- class branch coverage minimum: `0.70`
-- package `config`, `dto`, dan `model` dikecualikan dari rule class-level.
-
-## Integrasi
-
-Frontend Bacaan dan Kuis memakai REST endpoint backend:
-
-- `GET /api/admin/categories`
-- `GET /api/admin/readings`
-- `GET /api/admin/quizzes`
-- `GET /api/learner/readings/{readingId}`
-- `POST /api/learner/readings/{readingId}/quiz/start`
-- `GET /api/learner/readings/{readingId}/quiz`
-- `POST /api/learner/readings/{readingId}/quiz/submit`
-
-Endpoint learner membutuhkan header:
+Forum Diskusi dikonsumsi melalui proxy frontend:
 
 ```text
-X-Student-Id: <student-id>
+/api/diskusi-forum/comments
+/api/diskusi-forum/reactions
 ```
-
-Diskusi Forum Service saat ini dikonsumsi langsung dari:
-
-```text
-http://18.207.58.155:8085/api/comments
-http://18.207.58.155:8085/api/reactions
-```
-
-Kontrak lengkap ada di [API_CONTRACT.md](API_CONTRACT.md).
-
-## Design Pattern
-
-Pattern yang benar-benar ada di kode:
-
-- **Layered Architecture / MVC**: Controller menerima request, Service memegang business logic, Repository mengakses database.
-- **Repository Pattern**: Spring Data JPA repository seperti `CategoryRepository`, `ReadingRepository`, `QuizRepository`, dan `QuizAttemptRepository`.
-- **DTO Pattern**: request/response dipisahkan dari entity JPA, misalnya `ReadingRequest`, `ReadingResponse`, `LearnerQuizQuestionResponse`.
-- **Dependency Injection**: constructor injection pada controller dan service.
-- **Centralized Exception Handling**: `RestExceptionHandler` menangani validation error dan `ResponseStatusException`.
-
-Detail kelas dan diagram ada di [docs/VPIC_ARCHITECTURE.md](docs/VPIC_ARCHITECTURE.md).
-
-## Status gRPC/RabbitMQ
-
-Audit kode menunjukkan belum ada dependency atau implementasi gRPC/RabbitMQ. Integrasi saat ini memakai REST API. Keputusan ini aman untuk scope sekarang karena frontend dan service lain membutuhkan operasi request-response sinkron seperti mengambil bacaan, mengambil soal, submit kuis, dan membaca statistik.
-
-Jika tugas mewajibkan message broker, kandidat paling realistis adalah RabbitMQ event `quiz.completed` yang dipublish setelah submit kuis berhasil. Rekomendasi desainnya ada di [docs/VPIC_ARCHITECTURE.md](docs/VPIC_ARCHITECTURE.md).
 
 ## Security
 
-Status security modul Bacaan dan Kuis sudah memakai Spring Security OAuth2 Resource Server JWT:
+Backend Bacaan dan Kuis menggunakan Spring Security Resource Server.
 
-- `/api/admin/**` membutuhkan Bearer JWT role `ADMIN`.
-- `/api/learner/**` membutuhkan Bearer JWT role `LEARNER`; student ID dibaca dari claim JWT.
-- `/api/internal/**` membutuhkan `X-Internal-Service-Token`.
-- endpoint lain ditutup dengan `denyAll`.
-- credential database memakai environment variable dan `.env` sudah di-ignore.
-- CORS dibatasi melalui `CORS_ALLOWED_ORIGINS`.
-- audit log sederhana tersedia untuk operasi admin dan submit quiz.
+- Endpoint admin membutuhkan role `ADMIN`.
+- Endpoint learner membutuhkan role `LEARNER`.
+- Student identity dibaca dari claim JWT.
+- Endpoint internal dilindungi token service-to-service.
+- CORS dikontrol dari environment.
+- Credential database dan token deployment tidak disimpan di repository.
 
-Untuk development lokal tanpa auth service, backend menyediakan `SECURITY_DEV_AUTH_ENABLED=true`; mode ini tidak boleh dipakai di production. Rate limiting, TLS termination, WAF, dan mTLS/gateway policy tetap menjadi tanggung jawab API Gateway/deployment layer. Detail lengkap ada di [docs/VPIC_ARCHITECTURE.md](docs/VPIC_ARCHITECTURE.md#9-security).
+Untuk development lokal, backend menyediakan mode dev auth, tetapi mode ini bukan untuk production.
 
-## Profiling
+## Performance dan Monitoring
 
-Profiling performa belum memakai tool eksternal permanen di repo. Dokumentasi VPIC menyediakan cara reproducible menggunakan Java Flight Recorder dan opsi Spring Boot Actuator/JMeter/k6 jika dependency atau tool tersedia.
+Modul Bacaan dan Kuis sudah disiapkan untuk observability dan performance evidence:
 
-Bedakan:
+- Actuator health check untuk deploy dan monitoring.
+- Prometheus metrics untuk latency, throughput, JVM, dan koneksi database.
+- Grafana dashboard lokal untuk membaca metrik aplikasi.
+- APDEX untuk mengukur respons flow learner.
+- Lighthouse untuk halaman frontend.
+- Clarity untuk usability evidence.
 
-- **coverage testing**: dijalankan oleh Gradle + JaCoCo untuk mengukur cakupan test.
-- **performance profiling**: mengukur latency, throughput, CPU, memory, dan bottleneck runtime.
+Catatan lengkap performance evidence ada di `docs/PERFORMANCE_FINAL_GUIDE.md`.
 
-## Performance dan Monitoring Final
+## Deployment
 
-Panduan bukti final untuk APDEX, Lighthouse, Clarity, profiling, dan monitoring modul Bacaan dan Kuis ada di [docs/PERFORMANCE_FINAL_GUIDE.md](docs/PERFORMANCE_FINAL_GUIDE.md).
+Frontend dideploy ke Vercel. Backend Bacaan dan Kuis dideploy ke Fly.io:
 
-Yang sudah disiapkan:
+```text
+https://yomu-bacaan-dan-kuis-b14-hanif.fly.dev
+```
 
-- Spring Boot Actuator + Prometheus metrics di backend Bacaan dan Kuis.
-- Docker Compose Prometheus/Grafana di `monitoring/`.
-- Dashboard Grafana `Yomu Bacaan dan Kuis Observability`.
-- Script k6 APDEX di `docs/k6-bacaan-kuis-apdex.js`.
-- Runner Lighthouse di `scripts/run-lighthouse-bacaan-kuis.ps1`.
-- Hook Microsoft Clarity via `NEXT_PUBLIC_CLARITY_PROJECT_ID`.
+Backend CD memakai GitHub Actions dan Fly.io. Workflow deployment melakukan deploy, health check, dan menyediakan jalur rollback manual sebagai bukti prosedur deployment lanjutan.
 
-## Catatan Implementasi Frontend
+## Dokumentasi Tambahan
 
-`BacaanKuisModule` sudah menggunakan data backend, bukan dummy data hardcoded. Yang masih hardcoded hanya teks UI dan gamification preview seperti XP/level. Data kategori, bacaan, kuis, dan submit attempt berasal dari backend.
+- `docs/VPIC_ARCHITECTURE.md` untuk catatan arsitektur.
+- `docs/PERFORMANCE_FINAL_GUIDE.md` untuk bukti final performance, monitoring, APDEX, Lighthouse, dan Clarity.
+- `yomu-bacaan-dan-kuis/README.md` untuk ringkasan backend Bacaan dan Kuis.

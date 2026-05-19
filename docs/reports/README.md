@@ -1,6 +1,6 @@
 # Reports
 
-Folder ini dipakai untuk menyimpan artefak bukti final yang dihasilkan dari command performance/testing, misalnya:
+Folder ini dipakai untuk menyimpan bukti final yang dihasilkan dari command performance/testing, seperti:
 
 - `apdex-summary.md`
 - `apdex-summary.json`
@@ -8,5 +8,3 @@ Folder ini dipakai untuk menyimpan artefak bukti final yang dihasilkan dari comm
 - `lighthouse-bacaan-kuis-before.report.json`
 - `lighthouse-bacaan-kuis-after.report.html`
 - `lighthouse-bacaan-kuis-after.report.json`
-
-Report dapat dijadikan bukti before-after di `Presentasi.md`.
