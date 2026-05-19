@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { DiskusiForumModule } from "@/components/modules/DiskusiForumModule";
 
 type Category = {
   id: number;
@@ -984,7 +985,7 @@ export const BacaanKuisModule = () => {
           )}
 
           {activeView === "forum" && (
-            <ForumView studentId={studentId} apiBase={API_BASE_URL} />
+            <DiskusiForumModule />
           )}
 
           {activeView === "admin" && (
