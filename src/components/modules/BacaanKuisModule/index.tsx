@@ -1127,7 +1127,15 @@ const ForumView = ({ studentId, apiBase }: { studentId: string; apiBase: string 
     const res = await fetch(`${base}${path}`, { ...options, headers });
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
-      try { const p = await res.json(); if (p.message) msg = p.message; } catch { msg = (await res.text()) || msg; }
+      const bodyText = await res.text();
+      if (bodyText) {
+        try {
+          const payload = JSON.parse(bodyText) as { message?: string };
+          msg = payload.message ?? bodyText;
+        } catch {
+          msg = bodyText;
+        }
+      }
       throw new Error(msg);
     }
     if (res.status === 204) return null as T;

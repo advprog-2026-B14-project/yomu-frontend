@@ -124,6 +124,25 @@ docs/reports/apdex-summary.md
 docs/reports/apdex-summary.json
 ```
 
+Jika `k6` tidak tersedia di Windows, gunakan runner Node.js cadangan:
+
+```powershell
+cd C:\adpro\IdeaProjects\group
+$env:BACAAN_KUIS_BASE_URL="https://yomu-bacaan-dan-kuis-b14-hanif.fly.dev"
+$env:READING_ID="16"
+$env:APDEX_TARGET_MS="500"
+$env:APDEX_VUS="10"
+$env:APDEX_ITERATIONS="5"
+node scripts/run-apdex-bacaan-kuis.mjs
+```
+
+Runner ini menghasilkan file bukti yang sama:
+
+```text
+docs/reports/apdex-summary.md
+docs/reports/apdex-summary.json
+```
+
 ## 4. Lighthouse
 
 Jalankan frontend:

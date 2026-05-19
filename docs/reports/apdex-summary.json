@@ -1,0 +1,377 @@
+{
+  "baseUrl": "https://yomu-bacaan-dan-kuis-b14-hanif.fly.dev",
+  "readingId": 16,
+  "targetMs": 500,
+  "toleratingMs": 2000,
+  "vus": 5,
+  "iterations": 3,
+  "apdex": 0.9333333333333333,
+  "satisfied": 39,
+  "tolerating": 6,
+  "frustrated": 0,
+  "p50": 301.21649999999977,
+  "p95": 762.5349,
+  "failures": [],
+  "results": [
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 721.516,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 676.9751,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 730.9106999999999,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 762.5349,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 882.9928,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 470.08310000000006,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 469.1376,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 425.6055,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 462.3087999999999,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 450.3130000000001,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 282.31359999999995,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 316.5872999999999,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 299.703,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 299.2346,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 302.47579999999994,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 301.50959999999986,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 266.6389999999999,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 301.5553,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 289.19320000000016,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 289.538,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 269.4955000000002,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 301.21649999999977,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 300.76700000000005,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 291.51449999999977,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 297.9078999999999,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 250.64990000000034,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 287.21889999999985,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 306.46439999999984,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 304.9011999999998,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 290.3951000000002,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 286.81770000000006,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 292.94799999999987,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 299.63250000000016,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 299.9207000000001,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 295.96180000000004,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 294.28150000000005,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 908.2455,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 267.78319999999985,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 337.1338999999998,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 291.92930000000024,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 357.4961000000003,
+      "error": ""
+    },
+    {
+      "label": "get reading",
+      "path": "/api/learner/readings/16",
+      "status": 200,
+      "ok": true,
+      "durationMs": 304.95910000000003,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 372.9327000000003,
+      "error": ""
+    },
+    {
+      "label": "start quiz",
+      "path": "/api/learner/readings/16/quiz/start",
+      "status": 200,
+      "ok": true,
+      "durationMs": 296.3298,
+      "error": ""
+    },
+    {
+      "label": "get quiz",
+      "path": "/api/learner/readings/16/quiz",
+      "status": 200,
+      "ok": true,
+      "durationMs": 307.36950000000024,
+      "error": ""
+    }
+  ]
+}
