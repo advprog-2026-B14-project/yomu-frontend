@@ -34,11 +34,27 @@ type LearnerReadingResponse = {
 };
 
 type LearnerQuestion = {
+  id: number;
   question: string;
   optionA: string;
   optionB: string;
   optionC: string;
   optionD: string;
+};
+
+type LearnerSubmitQuizResponse = {
+  score: number;
+  totalQuestions: number;
+  correctAnswers: Record<number, string>;
+};
+
+type LeagueStatisticsResponse = {
+  studentId: string;
+  completedQuizCount: number;
+  totalCorrectAnswers: number;
+  totalAnsweredQuestions: number;
+  accuracyRate: number;
+  accuracyPercentage: number;
 };
 
 type ReadingForm = {
@@ -94,6 +110,10 @@ export const BacaanKuisModule = () => {
   const [learnerQuestions, setLearnerQuestions] = useState<LearnerQuestion[]>([]);
   const [learnerQuizIds, setLearnerQuizIds] = useState<number[]>([]);
   const [learnerAnswers, setLearnerAnswers] = useState<Record<number, string>>({});
+  const [reviewCorrectAnswers, setReviewCorrectAnswers] = useState<Record<number, string>>({});
+  const [leagueStatistics, setLeagueStatistics] = useState<LeagueStatisticsResponse | null>(null);
+  const [leagueStatsError, setLeagueStatsError] = useState<string | null>(null);
+  const [leagueStatsSyncedAt, setLeagueStatsSyncedAt] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [quizStarted, setQuizStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -146,7 +166,7 @@ export const BacaanKuisModule = () => {
       : scoreIsPercentage
         ? Math.round((Math.min(score, 100) / 100) * learnerQuestions.length)
         : Math.min(score, learnerQuestions.length);
-  const leagueStats = {
+  const localLeagueStats = {
     accuracy: normalizedScorePercent,
     completedQuiz: score === null ? 0 : 1,
     answeredQuestions: answeredCount,
@@ -154,6 +174,16 @@ export const BacaanKuisModule = () => {
     frequency: score === null ? "Belum submit" : `${learnerQuestions.length} jawaban/sesi`,
     status: score === null ? "Menunggu submit quiz" : "Siap dikirim ke Modul Liga",
   };
+  const leagueStats = leagueStatistics
+    ? {
+        accuracy: leagueStatistics.accuracyPercentage,
+        completedQuiz: leagueStatistics.completedQuizCount,
+        answeredQuestions: leagueStatistics.totalAnsweredQuestions,
+        correctAnswers: leagueStatistics.totalCorrectAnswers,
+        frequency: `${leagueStatistics.completedQuizCount} kuis selesai`,
+        status: "Sinkron real-time dari endpoint internal Modul Liga",
+      }
+    : localLeagueStats;
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -258,9 +288,39 @@ export const BacaanKuisModule = () => {
     setLearnerQuestions([]);
     setLearnerQuizIds([]);
     setLearnerAnswers({});
+    setReviewCorrectAnswers({});
     setScore(null);
     setQuizStarted(false);
     setCurrentQuestion(0);
+  };
+
+  const fetchLeagueStatistics = async (sid = studentId.trim()) => {
+    if (!sid) {
+      setLeagueStatistics(null);
+      setLeagueStatsError(null);
+      setLeagueStatsSyncedAt(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/league/statistics/students/${encodeURIComponent(sid)}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `HTTP ${response.status}`);
+      }
+
+      const payload = (await response.json()) as LeagueStatisticsResponse;
+      setLeagueStatistics(payload);
+      setLeagueStatsError(null);
+      setLeagueStatsSyncedAt(new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    } catch (error) {
+      setLeagueStatistics(null);
+      setLeagueStatsError(error instanceof Error ? error.message : "Gagal mengambil statistik Liga.");
+      setLeagueStatsSyncedAt(null);
+    }
   };
 
   const loadLearnerReading = async () => {
@@ -275,8 +335,10 @@ export const BacaanKuisModule = () => {
     setLearnerQuestions([]);
     setLearnerQuizIds([]);
     setLearnerAnswers({});
+    setReviewCorrectAnswers({});
     setScore(null);
     setActiveView("learn");
+    await fetchLeagueStatistics(sid);
     showToast("Bacaan berhasil dimuat");
   };
 
@@ -292,20 +354,18 @@ export const BacaanKuisModule = () => {
   const fetchQuestions = async () => {
     const sid = requireStudentId();
     const readingId = getSelectedReadingNumber();
-    const [questions, quizData] = await Promise.all([
-      api<LearnerQuestion[]>(`/api/learner/readings/${readingId}/quiz`, {
-        headers: { "X-Student-Id": sid },
-      }),
-      api<Quiz[]>("/api/admin/quizzes"),
-    ]);
+    const questions = await api<LearnerQuestion[]>(`/api/learner/readings/${readingId}/quiz`, {
+      headers: { "X-Student-Id": sid },
+    });
 
-    const ids = quizData.filter((quiz) => quiz.readingId === readingId).map((quiz) => quiz.id);
+    const ids = questions.map((question) => question.id);
     setLearnerQuestions(questions);
     setLearnerQuizIds(ids);
     setLearnerAnswers({});
+    setReviewCorrectAnswers({});
     setCurrentQuestion(0);
 
-    if (ids.length !== questions.length) {
+    if (ids.some((id) => typeof id !== "number")) {
       showToast("Peringatan: ID kuis tidak sinkron dengan data soal", "error");
       return;
     }
@@ -346,7 +406,7 @@ export const BacaanKuisModule = () => {
       }
     });
 
-    const result = await api<{ score: number }>(`/api/learner/readings/${readingId}/quiz/submit`, {
+    const result = await api<LearnerSubmitQuizResponse>(`/api/learner/readings/${readingId}/quiz/submit`, {
       method: "POST",
       headers: { "X-Student-Id": sid },
       body: JSON.stringify({ answers }),
@@ -357,8 +417,10 @@ export const BacaanKuisModule = () => {
     const submittedSummary = submittedScoreIsPercentage ? `${submittedScore}%` : `${submittedScore}/${learnerQuestions.length}`;
 
     setScore(submittedScore);
+    setReviewCorrectAnswers(result.correctAnswers ?? {});
     setQuizStarted(false);
     setCurrentQuestion(0);
+    await fetchLeagueStatistics(sid);
     showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };
 
@@ -566,13 +628,23 @@ export const BacaanKuisModule = () => {
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Statistik Liga</p>
                   <h2 className="mt-1 text-xl font-black tracking-tight">Akurasi dan frekuensi belajar</h2>
                 </div>
+                <button
+                  type="button"
+                  className={`${secondary} px-3 py-2 text-xs`}
+                  onClick={() => withLoading("sync-league", async () => fetchLeagueStatistics())}
+                  disabled={loadingAction === "sync-league" || !studentId.trim()}
+                >
+                  {loadingAction === "sync-league" ? "Sync..." : "Sync Liga"}
+                </button>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-4">
                 <MiniMetric label="Accuracy" value={`${leagueStats.accuracy}%`} />
-                <MiniMetric label="Correct" value={`${leagueStats.correctAnswers}/${learnerQuestions.length || 0}`} />
+                <MiniMetric label="Correct" value={`${leagueStats.correctAnswers}/${leagueStats.answeredQuestions || 0}`} />
                 <MiniMetric label="Frequency" value={leagueStats.frequency} />
                 <MiniMetric label="Completed" value={leagueStats.completedQuiz} />
               </div>
+              {leagueStatsSyncedAt && <p className="mt-3 text-xs font-semibold text-emerald-700">Terakhir sinkron: {leagueStatsSyncedAt}</p>}
+              {leagueStatsError && <p className="mt-3 text-xs font-semibold text-amber-700">Fallback sesi aktif: {leagueStatsError}</p>}
             </div>
             <div className={`${subtlePanel} p-4`}>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">League Payload</p>
@@ -770,6 +842,7 @@ export const BacaanKuisModule = () => {
                           setLearnerQuestions([]);
                           setLearnerQuizIds([]);
                           setLearnerAnswers({});
+                          setReviewCorrectAnswers({});
                           setScore(null);
                         }}
                       >
@@ -796,11 +869,20 @@ export const BacaanKuisModule = () => {
                     <div className="mt-5 grid gap-3">
                       {optionKeys.map((key) => {
                         const selected = learnerAnswers[currentQuestion] === key;
+                        const correctAnswer = reviewCorrectAnswers[activeQuestion.id];
+                        const isCorrectOption = score !== null && correctAnswer === key;
+                        const isSelectedWrong = score !== null && selected && correctAnswer && correctAnswer !== key;
                         return (
                           <label
                             key={key}
                             className={`flex items-start gap-3 rounded-2xl border p-4 transition ${
-                              selected ? "border-emerald-500 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white"
+                              isCorrectOption
+                                ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                                : isSelectedWrong
+                                  ? "border-rose-300 bg-rose-50 shadow-sm"
+                                  : selected
+                                    ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                                    : "border-slate-200 bg-white"
                             } ${score !== null ? "cursor-default opacity-90" : "cursor-pointer hover:-translate-y-0.5 hover:bg-white"}`}
                           >
                             <input
@@ -820,6 +902,8 @@ export const BacaanKuisModule = () => {
                             <span>
                               <span className="font-black text-slate-900">{key}.</span>{" "}
                               <span className="text-slate-700">{activeQuestion[`option${key}`]}</span>
+                              {isCorrectOption && <span className="ml-2 text-xs font-black uppercase text-emerald-700">Jawaban benar</span>}
+                              {isSelectedWrong && <span className="ml-2 text-xs font-black uppercase text-rose-700">Pilihanmu</span>}
                             </span>
                           </label>
                         );
