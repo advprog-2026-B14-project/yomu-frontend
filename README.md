@@ -2,7 +2,7 @@
 
 Yomu adalah platform pembelajaran berbasis web untuk membaca materi, mengerjakan kuis, berdiskusi, melihat pencapaian, dan berinteraksi dengan sistem liga. Repository ini berisi frontend Next.js dan backend Spring Boot untuk modul Bacaan dan Kuis.
 
-Fokus kontribusi modul Bacaan dan Kuis ada pada pengelolaan bacaan, quiz attempt learner, review hasil kuis, statistik akurasi, dan data yang dapat dikonsumsi modul lain.
+Fokus modul Bacaan dan Kuis ada pada pengelolaan bacaan, quiz attempt learner, review hasil kuis, statistik akurasi, dan data yang dipakai modul lain.
 
 ## Struktur Repo
 
@@ -30,7 +30,7 @@ group/
   Berperan sebagai modul pendukung pembelajaran. Bacaan dan Kuis menyediakan statistik yang dapat digunakan untuk kebutuhan liga.
 
 - **Authentication**  
-  Frontend memiliki halaman login/register. Backend Bacaan dan Kuis sendiri sudah menyiapkan proteksi role `ADMIN`, `LEARNER`, dan endpoint internal service-to-service.
+  Frontend memiliki halaman login/register. Backend Bacaan dan Kuis punya proteksi role `ADMIN`, `LEARNER`, dan endpoint internal service-to-service.
 
 ## Tech Stack
 
@@ -56,11 +56,11 @@ Backend Bacaan dan Kuis memakai layered architecture:
 - DTO untuk request dan response.
 - Entity untuk representasi persistence.
 
-Struktur ini menjaga prinsip SOLID secara praktis: controller tidak memegang query database, service tidak terikat detail HTTP, dan repository tetap fokus pada persistence. Dependency injection dipakai lewat constructor agar dependency eksplisit dan mudah diuji.
+Struktur ini menjaga prinsip SOLID secara praktis: controller tidak memegang query database, service tidak terikat detail HTTP, dan repository fokus pada persistence. Dependency injection dipakai lewat constructor agar dependency eksplisit dan mudah diuji.
 
 ## Integrasi REST API
 
-Audit kode menunjukkan integrasi antar modul saat ini memakai REST API. Pilihan ini sesuai dengan kebutuhan project karena alur utamanya masih request-response: mengambil daftar bacaan, memulai kuis, mengambil soal, submit jawaban, membaca statistik, serta mengambil komentar forum.
+Integrasi di project ini memakai REST API. Alurnya sederhana dan cepat: frontend ambil daftar bacaan, mulai kuis, ambil soal, submit jawaban, baca statistik, dan ambil komentar forum.
 
 Contoh integrasi Bacaan dan Kuis:
 
@@ -90,11 +90,11 @@ Backend Bacaan dan Kuis menggunakan Spring Security Resource Server.
 - CORS dikontrol dari environment.
 - Credential database dan token deployment tidak disimpan di repository.
 
-Untuk development lokal, backend menyediakan mode dev auth, tetapi mode ini bukan untuk production.
+Untuk development lokal, backend menyediakan mode dev auth, tapi bukan dipake untuk production.
 
 ## Performance dan Monitoring
 
-Modul Bacaan dan Kuis sudah disiapkan untuk observability dan performance evidence:
+Menurut saya, modul Bacaan dan Kuis udah sesuai untuk observability dan performance evidence:
 
 - Actuator health check untuk deploy dan monitoring.
 - Prometheus metrics untuk latency, throughput, JVM, dan koneksi database.
@@ -103,7 +103,7 @@ Modul Bacaan dan Kuis sudah disiapkan untuk observability dan performance eviden
 - Lighthouse untuk halaman frontend.
 - Clarity untuk usability evidence.
 
-Catatan lengkap performance evidence ada di `docs/PERFORMANCE_FINAL_GUIDE.md`.
+Info detail performance evidence ada di `docs/PERFORMANCE_FINAL_GUIDE.md`.
 
 ## Deployment
 
@@ -113,10 +113,9 @@ Frontend dideploy ke Vercel. Backend Bacaan dan Kuis dideploy ke Fly.io:
 https://yomu-bacaan-dan-kuis-b14-hanif.fly.dev
 ```
 
-Backend CD memakai GitHub Actions dan Fly.io. Workflow deployment melakukan deploy, health check, dan menyediakan jalur rollback manual sebagai bukti prosedur deployment lanjutan.
+Backend CD menggunakan GitHub Actions dan Fly.io. Workflow deployment melakukan deploy, health check, dan menyediakan jalur rollback manual untuk prosedur deployment lanjutan.
 
 ## Dokumentasi Tambahan
 
-- `docs/VPIC_ARCHITECTURE.md` untuk catatan arsitektur.
-- `docs/PERFORMANCE_FINAL_GUIDE.md` untuk bukti final performance, monitoring, APDEX, Lighthouse, dan Clarity.
-- `yomu-bacaan-dan-kuis/README.md` untuk ringkasan backend Bacaan dan Kuis.
+- `docs/VPIC_ARCHITECTURE.md` sebagai info arsitektur.
+- `yomu-bacaan-dan-kuis/README.md` sebagai info backend Bacaan dan Kuis.
