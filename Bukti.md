@@ -86,7 +86,9 @@ Lighthouse after:
 
 Profiling before dengan JFR/APDEX: APDEX 0.620, p50 650 ms, p95 1600 ms, frustrated/failed requests 2.
 
-Profiling after dengan JFR/APDEX: ![alt text](profilingAfterAPDEX.png)
+Profiling after dengan JFR/APDEX:
+
+![Profiling after APDEX](bukti/profilingAfterAPDEX.png)
 
 Screenshot/file report profiling: before ada di tabel; after di `docs/reports/apdex-summary.md`.
 
@@ -115,7 +117,9 @@ Metrik database:
 - Supabase database health/connection/usage dari dashboard Supabase.
 
 Screenshot Grafana dashboard aplikasi: TO BE CONTINUE.
-Screenshot Supabase dashboard database: ![alt text](dashboardSupabase.png)
+Screenshot Supabase dashboard database:
+
+![Dashboard Supabase](bukti/dashboardSupabase.png)
 
 ## 4. Deployment Lanjutan
 
@@ -158,11 +162,19 @@ Prosedur lanjutan:
 - Rollback manual tersedia lewat `workflow_dispatch` dengan input `action=rollback`.
 - Rollback juga menjalankan smoke test setelah command rollback selesai.
 
-Screenshot GitHub Actions deploy berhasil: ![alt text](deployAutoBerhasil.png)
+Screenshot GitHub Actions deploy berhasil:
 
-Screenshot Fly.io latest release/deployment: ![alt text](flyioRelease.png) ![alt text](flyioDashboard.png)
+![Deploy otomatis berhasil](bukti/deployAutoBerhasil.png)
 
-Screenshot/log rollback berhasil: ![alt text](healthUp.png)
+Screenshot Fly.io latest release/deployment:
+
+![Fly.io release](bukti/flyioRelease.png)
+
+![Fly.io dashboard](bukti/flyioDashboard.png)
+
+Screenshot/log rollback berhasil:
+
+![Health UP](bukti/healthUp.png)
 
 ## 5. Software Architecture Testing
 
@@ -186,8 +198,14 @@ Bukti test backend:
 - Coverage lokal backend setelah update: instruction 98.63%, line 98.64%, branch 76.04%, method 99.06%, class 100.00%.
 - SonarCloud new code coverage yang sempat terlihat: 90.4%.
 
-Screenshot hasil APDEX/load test final: ![alt text](apdexLoadTestFinal.png)
+Screenshot hasil APDEX/load test final:
 
-Screenshot endpoint internal dengan token valid: ![alt text](endpointInternal.png)
+![APDEX load test final](bukti/apdexLoadTestFinal.png)
 
-Screenshot endpoint internal tanpa token `401`: ![alt.text](endpointInternalNoToken.png)
+Screenshot endpoint internal dengan token valid:
+
+![Endpoint internal dengan token](bukti/endpointInternal.png)
+
+Screenshot endpoint internal tanpa token `401`:
+
+![Endpoint internal tanpa token](bukti/endpointInternalNoToken.png)
