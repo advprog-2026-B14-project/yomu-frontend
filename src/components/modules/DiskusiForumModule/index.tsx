@@ -7,7 +7,14 @@ const API_BASE_PATH = "/api/diskusi-forum";
 const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
 const REACTIONS_API_BASE_URL = `${API_BASE_PATH}/reactions`;
 
-type ReactionType = "API" | "ROKET" | "TERTAWA" | "CONFETI" | "EMOT_BERTANYA";
+type ReactionType =
+  | "UPVOTE"
+  | "DOWNVOTE"
+  | "EMOJI_CELEBRATE"
+  | "EMOJI_THUMBS_UP"
+  | "EMOJI_LAUGH"
+  | "EMOJI_HEART"
+  | "EMOJI_THINKING";
 
 type Reaction = {
   id: string;
@@ -35,11 +42,11 @@ const REACTION_OPTIONS: Array<{
   emoji: string;
   type: ReactionType;
 }> = [
-  { emoji: "🔥", type: "API" },
-  { emoji: "🚀", type: "ROKET" },
-  { emoji: "😂", type: "TERTAWA" },
-  { emoji: "🎉", type: "CONFETI" },
-  { emoji: "🤔", type: "EMOT_BERTANYA" },
+  { emoji: "🔥", type: "EMOJI_HEART" },
+  { emoji: "🚀", type: "EMOJI_THUMBS_UP" },
+  { emoji: "😂", type: "EMOJI_LAUGH" },
+  { emoji: "🎉", type: "EMOJI_CELEBRATE" },
+  { emoji: "🤔", type: "EMOJI_THINKING" },
 ];
 
 export const DiskusiForumModule = ({
@@ -54,41 +61,39 @@ export const DiskusiForumModule = ({
 
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
-  const [loadingReactionKey, setLoadingReactionKey] = useState<string | null>(
-    null,
+  const [loadingReactions, setLoadingReactions] = useState<Set<string>>(
+    () => new Set(),
   );
 
   const currentUserId = "550e8400-e29b-41d4-a716-446655440000";
 
   const fetchComments = useCallback(async () => {
     try {
-      const url = new URL(COMMENTS_API_BASE_URL, window.location.origin);
-      url.searchParams.set("readingId", readingId);
-
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error("Gagal mengambil data dari AWS");
+      const res = await fetch(`${COMMENTS_API_BASE_URL}/reading/${readingId}`);
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(
+          `Gagal mengambil data (${res.status} ${res.statusText})${
+            errorBody ? `: ${errorBody}` : ""
+          }`,
+        );
+      }
       const data: CommentItem[] = await res.json();
 
-      const filteredComments = data.filter(
-        (comment) => !comment.readingId || comment.readingId === readingId,
-      );
-
       const commentsWithReactions = await Promise.all(
-        (Array.isArray(filteredComments) ? filteredComments : []).map(
-          async (comment) => {
-            try {
-              const reactionRes = await fetch(
-                `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
-              );
-              const reactions: Reaction[] = reactionRes.ok
-                ? await reactionRes.json()
-                : [];
-              return { ...comment, reactions };
-            } catch {
-              return { ...comment, reactions: [] };
-            }
-          },
-        ),
+        (Array.isArray(data) ? data : []).map(async (comment) => {
+          try {
+            const reactionRes = await fetch(
+              `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
+            );
+            const reactions: Reaction[] = reactionRes.ok
+              ? await reactionRes.json()
+              : [];
+            return { ...comment, reactions };
+          } catch {
+            return { ...comment, reactions: [] };
+          }
+        }),
       );
 
       setComments(commentsWithReactions);
@@ -143,7 +148,10 @@ export const DiskusiForumModule = ({
       const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editContent }),
+        body: JSON.stringify({
+          userId: currentUserId,
+          content: editContent,
+        }),
       });
       if (!res.ok) throw new Error("Gagal mengupdate komentar");
       setEditingId(null);
@@ -154,13 +162,16 @@ export const DiskusiForumModule = ({
       setErrorMsg(message);
     }
   };
-  //
+
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus komentar ini?")) return;
     try {
-      const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `${COMMENTS_API_BASE_URL}/${id}?userId=${currentUserId}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (!res.ok) throw new Error("Gagal menghapus komentar");
       await fetchComments();
     } catch (err) {
@@ -178,6 +189,23 @@ export const DiskusiForumModule = ({
     comment.reactions?.filter(
       (reaction) => reaction.reactionType === reactionType,
     ).length || 0;
+
+  const syncCommentReactions = async (commentId: string) => {
+    try {
+      const reactionRes = await fetch(
+        `${REACTIONS_API_BASE_URL}/comment/${commentId}`,
+      );
+      const reactions: Reaction[] = reactionRes.ok
+        ? await reactionRes.json()
+        : [];
+
+      setComments((previousComments) =>
+        previousComments.map((comment) =>
+          comment.id === commentId ? { ...comment, reactions } : comment,
+        ),
+      );
+    } catch {}
+  };
 
   const updateCommentsOptimistically = (
     commentId: string,
@@ -218,7 +246,9 @@ export const DiskusiForumModule = ({
 
   const handleReact = async (commentId: string, reactionType: ReactionType) => {
     const reactionKey = `${commentId}:${reactionType}`;
-    setLoadingReactionKey(reactionKey);
+
+    if (loadingReactions.has(reactionKey)) return;
+    setLoadingReactions((prev) => new Set(prev).add(reactionKey));
 
     const previousComments = comments;
     const currentComment = previousComments.find(
@@ -233,23 +263,11 @@ export const DiskusiForumModule = ({
     try {
       if (existingReaction && existingReaction.reactionType === reactionType) {
         const deleteRes = await fetch(
-          `${REACTIONS_API_BASE_URL}/${existingReaction.id}`,
-          {
-            method: "DELETE",
-          },
+          `${REACTIONS_API_BASE_URL}/${existingReaction.id}?userId=${currentUserId}`,
+          { method: "DELETE" },
         );
         if (!deleteRes.ok) throw new Error("Gagal menghapus reaction");
       } else {
-        if (existingReaction) {
-          const deleteRes = await fetch(
-            `${REACTIONS_API_BASE_URL}/${existingReaction.id}`,
-            {
-              method: "DELETE",
-            },
-          );
-          if (!deleteRes.ok) throw new Error("Gagal mengganti reaction");
-        }
-
         const addRes = await fetch(REACTIONS_API_BASE_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -261,13 +279,19 @@ export const DiskusiForumModule = ({
         });
         if (!addRes.ok) throw new Error("Gagal menambahkan reaction");
       }
+
+      void syncCommentReactions(commentId);
     } catch (err) {
       setComments(previousComments);
       const message =
         err instanceof Error ? err.message : "Gagal memberikan reaction";
       setErrorMsg(message);
     } finally {
-      setLoadingReactionKey(null);
+      setLoadingReactions((prev) => {
+        const next = new Set(prev);
+        next.delete(reactionKey);
+        return next;
+      });
     }
   };
 
@@ -306,8 +330,9 @@ export const DiskusiForumModule = ({
           <div className="flex flex-wrap gap-2 mb-4">
             {REACTION_OPTIONS.map((option) => {
               const count = getReactionCount(comment, option.type);
-              const loading =
-                loadingReactionKey === `${comment.id}:${option.type}`;
+              const loading = loadingReactions.has(
+                `${comment.id}:${option.type}`,
+              );
               const userReacted =
                 comment.reactions?.some(
                   (reaction) =>
