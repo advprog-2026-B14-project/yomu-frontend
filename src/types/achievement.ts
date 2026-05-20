@@ -29,3 +29,9 @@ export interface PinAchievementRequest {
   achievementId: string; // UUID as string
   pinOrder: number;
 }
+
+/** Master achievement DTO for dropdown selection */
+export interface AchievementMasterDto {
+  id: string;
+  nama: string;
+}

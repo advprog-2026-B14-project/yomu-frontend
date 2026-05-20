@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getUserProfile } from "@/services/achievementService";
+import {
+  getUserProfile,
+  pinAchievement,
+  getUnlockedAchievements,
+} from "@/services/achievementService";
 import type {
   PinnedAchievementDto,
   UserProfileResponse,
+  AchievementMasterDto,
 } from "@/types/achievement";
 
 // ─── Design‑system tokens (identical to BacaanKuisModule) ───
@@ -43,6 +48,11 @@ export const AchievementModule = () => {
     type: "success" | "error";
   } | null>(null);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [pinForm, setPinForm] = useState({ achievementId: "", pinOrder: "1" });
+  const [pinLoading, setPinLoading] = useState(false);
+  const [availableAchievements, setAvailableAchievements] = useState<
+    AchievementMasterDto[]
+  >([]);
 
   const showToast = (
     message: string,
@@ -70,9 +80,19 @@ export const AchievementModule = () => {
     }
   };
 
+  const fetchUnlockedAchievements = async () => {
+    try {
+      const data = await getUnlockedAchievements(userId);
+      setAvailableAchievements(data || []);
+    } catch (err) {
+      console.error("Gagal memuat daftar achievement:", err);
+    }
+  };
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       fetchProfile(userId);
+      fetchUnlockedAchievements();
     }, 0);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -470,67 +490,134 @@ export const AchievementModule = () => {
               </button>
             </div>
 
-            <div className="mt-6 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-emerald-100 text-3xl">
-                📌
-              </div>
-              <p className="text-lg font-black text-slate-800">
-                Segera Hadir
-              </p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Fitur pemilihan achievement untuk di-pin ke profil akan
-                diintegrasikan dengan endpoint{" "}
-                <code className="rounded bg-slate-200 px-1.5 py-0.5 text-xs font-mono text-emerald-700">
-                  POST /api/achievements/pin
-                </code>
-              </p>
-
-              {/* Placeholder pin slots */}
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                {[1, 2, 3].map((slot) => {
-                  const pinned =
-                    profile?.pinnedAchievements?.[slot - 1] ?? null;
-                  return (
-                    <div
-                      key={slot}
-                      className={`rounded-2xl border-2 border-dashed p-4 transition ${
-                        pinned
-                          ? "border-emerald-300 bg-emerald-50"
-                          : "border-slate-300 bg-white"
-                      }`}
-                    >
-                      <p className="text-2xl">
-                        {pinned
-                          ? ACHIEVEMENT_ICONS[
-                              (slot - 1) % ACHIEVEMENT_ICONS.length
-                            ]
-                          : "➕"}
-                      </p>
-                      <p className="mt-2 text-xs font-bold text-slate-600">
-                        {pinned ? pinned.nama : `Slot ${slot}`}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* Current pin slots */}
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              {[1, 2, 3].map((slot) => {
+                const pinned =
+                  profile?.pinnedAchievements?.find(
+                    (a) => a.pinOrder === slot,
+                  ) ?? null;
+                return (
+                  <div
+                    key={slot}
+                    className={`rounded-2xl border-2 border-dashed p-4 transition ${
+                      pinned
+                        ? "border-emerald-300 bg-emerald-50"
+                        : "border-slate-300 bg-white"
+                    }`}
+                  >
+                    <p className="text-2xl">
+                      {pinned
+                        ? ACHIEVEMENT_ICONS[
+                            (slot - 1) % ACHIEVEMENT_ICONS.length
+                          ]
+                        : "➕"}
+                    </p>
+                    <p className="mt-2 text-xs font-bold text-slate-600">
+                      {pinned ? pinned.nama : `Slot ${slot}`}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                className={secondary}
-                onClick={() => setShowPinModal(false)}
-              >
-                Tutup
-              </button>
-              <button
-                type="button"
-                className={`${primary} cursor-not-allowed opacity-50`}
-                disabled
-              >
-                Simpan Perubahan
-              </button>
-            </div>
+            {/* Pin form */}
+            <form
+              className="mt-6 space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!pinForm.achievementId.trim()) {
+                  showToast("Achievement ID wajib diisi", "error");
+                  return;
+                }
+                setPinLoading(true);
+                try {
+                  await pinAchievement({
+                    userId: userId.trim(),
+                    achievementId: pinForm.achievementId.trim(),
+                    pinOrder: Number(pinForm.pinOrder),
+                  });
+                  showToast("Achievement berhasil di-pin!");
+                  setPinForm({ achievementId: "", pinOrder: "1" });
+                  setShowPinModal(false);
+                  await fetchProfile(userId.trim());
+                } catch (err) {
+                  const msg =
+                    err instanceof Error
+                      ? err.message
+                      : "Gagal menyimpan pin.";
+                  showToast(msg, "error");
+                } finally {
+                  setPinLoading(false);
+                }
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="pin-achievement-id"
+                  className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                >
+                  Pilih Achievement
+                </label>
+                <select
+                  id="pin-achievement-id"
+                  value={pinForm.achievementId}
+                  onChange={(e) =>
+                    setPinForm((prev) => ({
+                      ...prev,
+                      achievementId: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                >
+                  <option value="" disabled>Pilih achievement untuk di-pin</option>
+                  {availableAchievements.map((ach) => (
+                    <option key={ach.id} value={ach.id}>
+                      {ach.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="pin-order"
+                  className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                >
+                  Pin Order (Slot)
+                </label>
+                <select
+                  id="pin-order"
+                  value={pinForm.pinOrder}
+                  onChange={(e) =>
+                    setPinForm((prev) => ({
+                      ...prev,
+                      pinOrder: e.target.value,
+                    }))
+                  }
+                  className={inputClass}
+                >
+                  <option value="1">Slot 1</option>
+                  <option value="2">Slot 2</option>
+                  <option value="3">Slot 3</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className={secondary}
+                  onClick={() => setShowPinModal(false)}
+                >
+                  Tutup
+                </button>
+                <button
+                  type="submit"
+                  className={primary}
+                  disabled={pinLoading || !pinForm.achievementId.trim()}
+                >
+                  {pinLoading ? "Menyimpan…" : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

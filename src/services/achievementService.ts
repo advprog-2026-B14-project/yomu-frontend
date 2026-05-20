@@ -7,6 +7,7 @@
  */
 
 import type {
+  AchievementMasterDto,
   PinAchievementRequest,
   UserProfileResponse,
 } from "@/types/achievement";
@@ -83,4 +84,14 @@ export async function pinAchievement(
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+/** GET /api/achievements/master */
+export async function getAllAchievements(): Promise<AchievementMasterDto[]> {
+  return api<AchievementMasterDto[]>("/api/achievements/master");
+}
+
+/** GET /api/achievements/unlocked/{userId} */
+export async function getUnlockedAchievements(userId: string): Promise<AchievementMasterDto[]> {
+  return api<AchievementMasterDto[]>(`/api/achievements/unlocked/${encodeURIComponent(userId)}`);
 }
