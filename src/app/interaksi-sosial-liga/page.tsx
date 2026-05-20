@@ -1,7 +1,5 @@
-import { InteraksiSosialLigaModule } from "@/components/modules/InteraksiSosialLigaModule";
+import { InteraksiSosialLigaModule } from '@/components/modules/InteraksiSosialLigaModule';
 
-const InteraksiSosialLigaPage = () => {
+export default function InteraksiSosialLigaPage() {
   return <InteraksiSosialLigaModule />;
-};
-
-export default InteraksiSosialLigaPage;
+}
