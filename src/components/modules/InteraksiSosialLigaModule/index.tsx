@@ -1,7 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, FormEvent } from "react";
 
+// Variabel Environment khusus modul kamu biar ga tabrakan sama Hanif
+const API_BASE_URL = process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "http://localhost:8084";
+
+// --- TYPESCRIPT DEFINITIONS ---
+type Clan = {
+    id: string;
+    name: string;
+    tier: string;
+    score: number;
+    description?: string;
+    hasProductivityBuff?: boolean;
+    hasLowAccuracyDebuff?: boolean;
+};
+
+// --- STYLING VARIABLES (Dari desain sistem Yomu) ---
 const shell = "min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)] text-slate-900";
 const panel = "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur";
 const subtlePanel = "rounded-2xl border border-slate-200 bg-white shadow-sm";
@@ -13,14 +28,119 @@ const secondary =
     "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-400";
 
 export const InteraksiSosialLigaModule = () => {
+    // --- STATES ---
     const [activeView, setActiveView] = useState<"leaderboard" | "clan">("leaderboard");
     const [studentId, setStudentId] = useState("");
+
+    // Data States
+    const [leaderboard, setLeaderboard] = useState<Clan[]>([]);
+    const [myClan, setMyClan] = useState<Clan | null>(null);
+
+    // Loading & UI States
+    const [isLoading, setIsLoading] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+    // Form States
+    const [newClanName, setNewClanName] = useState("");
+    const [newClanDesc, setNewClanDesc] = useState("");
+    const [joinClanId, setJoinClanId] = useState("");
+
+    // --- HELPER FUNCTIONS ---
+    const showToast = (message: string, type: "success" | "error" = "success") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    // --- API CALLS ---
+    const fetchLeaderboard = async () => {
+        setIsLoading(true);
+        try {
+            // TODO: Ganti "/api/clans/leaderboard" dengan endpoint asli dari Spring Boot kamu
+            const res = await fetch(`${API_BASE_URL}/api/clans/leaderboard`);
+            if (!res.ok) throw new Error("Gagal mengambil data klasemen");
+            const data = await res.json();
+            setLeaderboard(data || []);
+        } catch (error) {
+            console.error("Fetch leaderboard error:", error);
+            // Kosongkan tabel jika gagal atau belum ada data
+            setLeaderboard([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Ambil data pas komponen pertama kali dirender
+    useEffect(() => {
+        fetchLeaderboard();
+    }, []);
+
+    const handleCreateClan = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!newClanName.trim() || !studentId.trim()) {
+            showToast("Nama Klan dan Student ID wajib diisi!", "error");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            // TODO: Ganti "/api/clans" dengan endpoint asli kamu
+            const res = await fetch(`${API_BASE_URL}/api/clans`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: newClanName,
+                    description: newClanDesc,
+                    leaderId: studentId,
+                }),
+            });
+
+            if (!res.ok) throw new Error("Gagal membuat klan");
+
+            showToast("Klan berhasil dibuat!", "success");
+            setNewClanName("");
+            setNewClanDesc("");
+            fetchLeaderboard(); // Refresh data klasemen
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : "Terjadi kesalahan";
+            showToast(msg, "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleJoinClan = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!joinClanId.trim() || !studentId.trim()) {
+            showToast("ID Klan dan Student ID wajib diisi!", "error");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            // TODO: Ganti endpoint sesuai backend kamu
+            const res = await fetch(`${API_BASE_URL}/api/clans/${joinClanId}/join`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ studentId }),
+            });
+
+            if (!res.ok) throw new Error("Gagal bergabung dengan klan");
+
+            showToast("Berhasil bergabung dengan klan!", "success");
+            setJoinClanId("");
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : "Terjadi kesalahan";
+            showToast(msg, "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className={shell}>
             <div className="mx-auto flex min-h-screen w-full max-w-7xl gap-4 px-4 py-4 lg:px-6">
 
-                {/* SIDEBAR */}
+                {/* --- SIDEBAR --- */}
                 <aside className={`${panel} sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 p-4 lg:block`}>
                     <div className="mb-8 flex items-center gap-3">
                         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-700 text-lg font-black text-white">Y</div>
@@ -55,20 +175,28 @@ export const InteraksiSosialLigaModule = () => {
                         ))}
                     </nav>
 
-                    {/* CLAN STATUS CARD DI SIDEBAR */}
+                    {/* CLAN STATUS CARD */}
                     <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white">
                         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">Status Klan</p>
-                        <p className="mt-2 text-2xl font-black">Naga Bonar</p>
-                        <div className="mt-3 flex gap-2">
-                            <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300 border border-amber-500/30">Tier: Gold</span>
-                            <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">Buff Aktif ⚡</span>
-                        </div>
+                        <p className="mt-2 text-2xl font-black">{myClan?.name || "Belum Bergabung"}</p>
+                        {myClan && (
+                            <div className="mt-3 flex gap-2 flex-wrap">
+                <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300 border border-amber-500/30">
+                  Tier: {myClan.tier}
+                </span>
+                                {myClan.hasProductivityBuff && (
+                                    <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">Buff Aktif ⚡</span>
+                                )}
+                                {myClan.hasLowAccuracyDebuff && (
+                                    <span className="rounded-full bg-rose-500/20 px-2 py-1 text-[10px] font-bold text-rose-300 border border-rose-500/30">Debuff Aktif ⚠️</span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </aside>
 
-                {/* MAIN CONTENT AREA */}
+                {/* --- MAIN CONTENT --- */}
                 <main className="min-w-0 flex-1">
-                    {/* HEADER */}
                     <header className={`${panel} mb-4 flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between`}>
                         <div>
                             <p className="text-sm font-bold text-emerald-700">Arena Kompetisi, {studentId.trim() || "Learner"}</p>
@@ -78,21 +206,23 @@ export const InteraksiSosialLigaModule = () => {
                             <input
                                 value={studentId}
                                 onChange={(event) => setStudentId(event.target.value)}
-                                placeholder="Student ID"
+                                placeholder="Masukkan Student ID..."
                                 className={`${input} sm:w-48`}
                             />
-                            <button type="button" className={secondary}>Sync Data</button>
+                            <button type="button" onClick={fetchLeaderboard} className={secondary} disabled={isLoading}>
+                                {isLoading ? "Syncing..." : "Sync Data"}
+                            </button>
                         </div>
                     </header>
 
                     {/* STATS CARDS */}
                     <section className="mb-4 grid gap-3 md:grid-cols-3">
-                        <StatCard label="Peringkat Klan" value="#4" tone="emerald" />
-                        <StatCard label="Total Poin" value="1,240" tone="amber" />
-                        <StatCard label="Efek Aktif" value="x1.2 XP" tone="purple" />
+                        <StatCard label="Total Klan" value={leaderboard.length.toString()} tone="emerald" />
+                        <StatCard label="Poin Tertinggi" value={leaderboard[0]?.score?.toLocaleString() || "0"} tone="amber" />
+                        <StatCard label="Musim" value="Season 1" tone="purple" />
                     </section>
 
-                    {/* TAMPILAN LEADERBOARD */}
+                    {/* --- VIEW: LEADERBOARD --- */}
                     {activeView === "leaderboard" && (
                         <article className={`${panel} p-5 xl:min-h-[calc(100vh-16rem)]`}>
                             <div className="mb-6">
@@ -111,28 +241,42 @@ export const InteraksiSosialLigaModule = () => {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {/* Dummy Data biar langsung keliatan bagus buat presentasi */}
-                                    {[
-                                        { rank: 1, name: "Harimau Putih", tier: "Diamond", score: 2500, color: "bg-cyan-50" },
-                                        { rank: 2, name: "Garuda Yaksa", tier: "Platinum", score: 2100, color: "bg-white" },
-                                        { rank: 3, name: "Banteng Merah", tier: "Gold", score: 1850, color: "bg-slate-50" },
-                                        { rank: 4, name: "Naga Bonar", tier: "Gold", score: 1240, color: "bg-emerald-50 border-l-4 border-l-emerald-500" },
-                                        { rank: 5, name: "Kancil Lari", tier: "Silver", score: 980, color: "bg-white" },
-                                    ].map((clan) => (
-                                        <tr key={clan.rank} className={clan.color}>
-                                            <td className="border-b border-slate-100 px-4 py-4 text-center font-black text-slate-500">#{clan.rank}</td>
-                                            <td className="border-b border-slate-100 px-4 py-4 font-bold text-slate-900">{clan.name}</td>
-                                            <td className="border-b border-slate-100 px-4 py-4 font-semibold text-slate-600">{clan.tier}</td>
-                                            <td className="border-b border-slate-100 px-4 py-4 text-right font-black text-emerald-700">{clan.score.toLocaleString()}</td>
+                                    {isLoading ? (
+                                        <tr><td colSpan={4} className="text-center py-8 text-slate-500 font-medium">Memuat data klasemen...</td></tr>
+                                    ) : leaderboard.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="text-center py-12">
+                                                <div className="flex flex-col items-center justify-center">
+                                                    <p className="text-lg font-bold text-slate-700">Belum ada klan yang terdaftar.</p>
+                                                    <p className="text-sm text-slate-500 mt-1">Jadilah yang pertama membentuk klan dan raih peringkat puncak!</p>
+                                                </div>
+                                            </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        leaderboard.map((clan, index) => {
+                                            const rank = index + 1;
+                                            let color = "bg-white";
+                                            if (rank === 1) color = "bg-amber-50 border-l-4 border-l-amber-500";
+                                            else if (rank === 2) color = "bg-slate-50 border-l-4 border-l-slate-400";
+                                            else if (rank === 3) color = "bg-orange-50 border-l-4 border-l-orange-400";
+
+                                            return (
+                                                <tr key={clan.id} className={color}>
+                                                    <td className="border-b border-slate-100 px-4 py-4 text-center font-black text-slate-500">#{rank}</td>
+                                                    <td className="border-b border-slate-100 px-4 py-4 font-bold text-slate-900">{clan.name}</td>
+                                                    <td className="border-b border-slate-100 px-4 py-4 font-semibold text-slate-600">{clan.tier}</td>
+                                                    <td className="border-b border-slate-100 px-4 py-4 text-right font-black text-emerald-700">{clan.score?.toLocaleString()}</td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
                                     </tbody>
                                 </table>
                             </div>
                         </article>
                     )}
 
-                    {/* TAMPILAN KLAN SAYA */}
+                    {/* --- VIEW: MANAJEMEN KLAN --- */}
                     {activeView === "clan" && (
                         <section className="grid gap-4 xl:grid-cols-2">
                             <article className={`${panel} p-6`}>
@@ -140,16 +284,29 @@ export const InteraksiSosialLigaModule = () => {
                                 <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Buat Klan Baru</h2>
                                 <p className="mt-2 text-sm text-slate-500 mb-6">Jadilah ketua dan kumpulkan teman-temanmu untuk memanjat tier Liga.</p>
 
-                                <form className="space-y-4">
+                                <form onSubmit={handleCreateClan} className="space-y-4">
                                     <div>
                                         <label className="text-xs font-bold text-slate-600 ml-1">Nama Klan</label>
-                                        <input placeholder="Masukkan nama klan yang keren..." className={`${input} mt-1`} />
+                                        <input
+                                            value={newClanName}
+                                            onChange={(e) => setNewClanName(e.target.value)}
+                                            placeholder="Masukkan nama klan yang keren..."
+                                            className={`${input} mt-1`}
+                                        />
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-slate-600 ml-1">Deskripsi Klan</label>
-                                        <textarea rows={3} placeholder="Misi dan visi klanmu..." className={`${input} mt-1`} />
+                                        <label className="text-xs font-bold text-slate-600 ml-1">Deskripsi Klan (Opsional)</label>
+                                        <textarea
+                                            value={newClanDesc}
+                                            onChange={(e) => setNewClanDesc(e.target.value)}
+                                            rows={3}
+                                            placeholder="Misi dan visi klanmu..."
+                                            className={`${input} mt-1`}
+                                        />
                                     </div>
-                                    <button type="button" className={`${primary} w-full mt-2`}>Bentuk Klan Sekarang</button>
+                                    <button type="submit" disabled={isLoading} className={`${primary} w-full mt-2`}>
+                                        {isLoading ? "Memproses..." : "Bentuk Klan Sekarang"}
+                                    </button>
                                 </form>
                             </article>
 
@@ -158,10 +315,17 @@ export const InteraksiSosialLigaModule = () => {
                                 <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Gabung Klan</h2>
                                 <p className="mt-2 text-sm text-slate-500 mb-6">Masukkan ID Klan untuk bergabung dengan temanmu.</p>
 
-                                <div className="flex gap-2">
-                                    <input placeholder="ID Klan (Contoh: KLN-123)" className={input} />
-                                    <button type="button" className={`${secondary} shrink-0`}>Gabung</button>
-                                </div>
+                                <form onSubmit={handleJoinClan} className="flex gap-2">
+                                    <input
+                                        value={joinClanId}
+                                        onChange={(e) => setJoinClanId(e.target.value)}
+                                        placeholder="ID Klan (Contoh: KLN-123)"
+                                        className={input}
+                                    />
+                                    <button type="submit" disabled={isLoading} className={`${secondary} shrink-0`}>
+                                        Gabung
+                                    </button>
+                                </form>
 
                                 <div className="mt-10 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                                     <p className="font-black text-amber-950">Sistem Buff & Debuff Liga ⚠️</p>
@@ -175,12 +339,20 @@ export const InteraksiSosialLigaModule = () => {
 
                 </main>
             </div>
+
+            {/* TOAST NOTIFICATION */}
+            {toast && (
+                <div className={`fixed bottom-4 right-4 z-50 max-w-sm rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-2xl ${
+                    toast.type === "error" ? "bg-rose-700" : "bg-emerald-700"
+                }`}>
+                    {toast.message}
+                </div>
+            )}
         </div>
     );
 };
 
-// Komponen Card kecil buat di atas
-const StatCard = ({ label, value, tone }: { label: string; value: number | string; tone: "emerald" | "amber" | "purple" }) => {
+const StatCard = ({ label, value, tone }: { label: string; value: string; tone: "emerald" | "amber" | "purple" }) => {
     const toneClass = {
         emerald: "from-emerald-500 to-teal-400",
         amber: "from-amber-400 to-orange-400",
