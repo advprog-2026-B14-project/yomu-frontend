@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   async rewrites() {
     const backendBaseUrl = process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL;
-    const authApiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const authApiUrl = process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
     const rewrites = [];
 
