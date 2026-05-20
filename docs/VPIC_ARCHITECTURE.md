@@ -496,8 +496,8 @@ Config ada di `CorsConfig`, berlaku untuk `/api/**`.
 Frontend Diskusi Forum saat ini memakai URL langsung:
 
 ```text
-http://18.207.58.155:8085/api/comments
-http://18.207.58.155:8085/api/reactions
+https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app/api/comments
+https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app/api/reactions
 ```
 
 Endpoint mengacu pada `API_CONTRACT.md`:

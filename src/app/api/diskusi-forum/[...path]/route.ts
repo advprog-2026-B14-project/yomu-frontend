@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 const DISKUSI_FORUM_API_URL =
-  process.env.DISKUSI_FORUM_API_URL ?? "http://18.207.58.155:8085";
+  process.env.DISKUSI_FORUM_API_URL ?? "https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app";
 
 const hopByHopHeaders = new Set([
   "connection",
