@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getUser, getToken, AuthUser, logout } from "@/lib/auth";
+import Link from "next/link";
 
 export default function Home() {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -39,12 +40,20 @@ export default function Home() {
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
       <h1 className="text-2xl font-bold">Halo, {user ? user.username : "Tamu"}</h1>
       {user && (
-        <button 
-          onClick={handleLogout}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-        >
-          Logout
-        </button>
+        <div className="flex gap-4">
+          <Link 
+            href={`/profile/${user.id}`}
+            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors shadow-md text-center"
+          >
+            Lihat Profil
+          </Link>
+          <button 
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors shadow-md"
+          >
+            Logout
+          </button>
+        </div>
       )}
       {!user && (
         <a 
