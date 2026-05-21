@@ -74,7 +74,7 @@ export const AdminModule = () => {
                 throw new Error(`Error ${res.status}: ${res.statusText} - ${errText}`);
             }
             
-            const data: User[] = await res.json();
+            const data: User[] = (await res.json()).content;
             setUsers(data);
             setFiltered(data);
         } catch (e: unknown) {
