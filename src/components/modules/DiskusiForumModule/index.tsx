@@ -33,10 +33,24 @@ type CommentItem = {
 
 type DiskusiForumModuleProps = {
   readingId?: string;
+  readingTitle?: string;
   className?: string;
 };
 
 const DEFAULT_READING_ID = "770e8400-e29b-41d4-a716-446655440001";
+const DEFAULT_READING_TITLE = "Judul Bacaan Default";
+
+const shell = "w-full font-sans";
+const panel =
+  "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur mx-auto w-full max-w-4xl p-6 sm:p-8";
+const input =
+  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
+const primary =
+  "rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300";
+const secondary =
+  "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-400";
+const danger =
+  "rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300";
 
 const REACTION_OPTIONS: Array<{
   emoji: string;
@@ -51,6 +65,7 @@ const REACTION_OPTIONS: Array<{
 
 export const DiskusiForumModule = ({
   readingId = DEFAULT_READING_ID,
+  readingTitle = DEFAULT_READING_TITLE,
   className = "",
 }: DiskusiForumModuleProps) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
@@ -363,7 +378,7 @@ export const DiskusiForumModule = ({
             <button
               type="button"
               onClick={() => setReplyingToId(comment.id)}
-              className="hover:text-blue-600 transition">
+              className={`${secondary} px-3`}>
               Balas
             </button>
             <button
@@ -372,13 +387,13 @@ export const DiskusiForumModule = ({
                 setEditingId(comment.id);
                 setEditContent(comment.content);
               }}
-              className="hover:text-amber-600 transition">
+              className={`${secondary} px-3`}>
               Edit
             </button>
             <button
               type="button"
               onClick={() => handleDelete(comment.id)}
-              className="hover:text-red-600 transition">
+              className={`${danger}`}>
               Hapus
             </button>
           </div>
@@ -386,9 +401,9 @@ export const DiskusiForumModule = ({
       )}
 
       {replyingToId === comment.id && (
-        <div className="mt-4 space-y-3 pl-4 border-l-2 border-blue-500">
+        <div className="mt-4 space-y-3 pl-4 border-l-2 border-emerald-200">
           <textarea
-            className="w-full p-3 rounded-lg border border-zinc-300 dark:bg-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+            className={`${input} p-3 bg-transparent`}
             placeholder="Tulis balasan..."
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
@@ -397,13 +412,13 @@ export const DiskusiForumModule = ({
             <button
               type="button"
               onClick={() => handleReply(comment.id)}
-              className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-blue-700 transition">
+              className={`${primary} px-3 py-1.5 text-sm`}>
               Balas
             </button>
             <button
               type="button"
               onClick={() => setReplyingToId(null)}
-              className="bg-zinc-500 text-white px-4 py-1.5 rounded-md text-sm hover:bg-zinc-600 transition">
+              className={`${secondary} px-3 py-1.5 text-sm`}>
               Batal
             </button>
           </div>
@@ -417,24 +432,29 @@ export const DiskusiForumModule = ({
   );
 
   return (
-    <section className={`w-full font-sans ${className}`.trim()}>
-      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
+    <section className={`${shell} ${className}`.trim()}>
+      <div className={panel}>
         <div className="space-y-8">
-          <h1 className="text-3xl font-bold text-center dark:text-white">
-            Yomu Forum Diskusi
-          </h1>
+          {readingTitle ? (
+            <div className="space-y-2 text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
+                Diskusi bacaan
+              </p>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-3xl">
+                {readingTitle}
+              </h2>
+            </div>
+          ) : null}
 
           <form onSubmit={handleCreate} className="space-y-4">
             <textarea
-              className="w-full p-4 rounded-xl border border-zinc-200 bg-transparent dark:border-zinc-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              className={`${input} p-4 bg-transparent`}
               placeholder="Apa pendapatmu mengenai bacaan ini?"
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               required
             />
-            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold shadow-md shadow-blue-500/20">
-              Kirim Komentar
-            </button>
+            <button className={`${primary}`}>Kirim Komentar</button>
           </form>
 
           {errorMsg && (
