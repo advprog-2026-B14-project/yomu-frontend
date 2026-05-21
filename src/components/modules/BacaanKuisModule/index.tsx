@@ -95,6 +95,11 @@ const estimateReadingTime = (content: string) => {
   return Math.max(1, Math.ceil(words / 180));
 };
 
+const toForumReadingId = (readingId: number) => {
+  const suffix = readingId.toString(16).padStart(12, "0").slice(-12);
+  return `00000000-0000-4000-8000-${suffix}`;
+};
+
 export const BacaanKuisModule = () => {
   const [activeView, setActiveView] = useState<"learn" | "quiz" | "admin" | "forum">("learn");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -986,7 +991,7 @@ export const BacaanKuisModule = () => {
 
           {activeView === "forum" && (
             <DiskusiForumModule
-              readingId={selectedReading ? String(selectedReading.id) : undefined}
+              readingId={selectedReading ? toForumReadingId(selectedReading.id) : undefined}
               readingTitle={selectedReading?.title}
             />
           )}
