@@ -50,8 +50,7 @@ export default function ProfilePage() {
 
       try {
         if (!username) return;
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
-        const res = await fetch(`${apiUrl}/user/username/${username}`, {
+        const res = await fetch(`/api/user/username/${username}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
