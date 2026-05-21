@@ -4,6 +4,12 @@ import { useState } from "react";
 import { saveAuth, AuthUser } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 
+const shell = "min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)] text-slate-900";
+const panel = "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur";
+const input = "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
+const primary = "w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300";
+const secondary = "w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50";
+
 export const LoginModule = () => {
   const [formData, setFormData] = useState({
     identifier: "",
@@ -97,65 +103,85 @@ export const LoginModule = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-8 border rounded-lg shadow-sm">
-        <h1 className="text-xl font-bold">Login Yomu</h1>
-
-        {errorMessage ? (
-          <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded">
-            {errorMessage}
+    <div className={shell}>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className={`${panel} w-full max-w-md p-8`}>
+          <div className="text-center mb-8">
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-emerald-700 text-xl font-black text-white shadow-lg shadow-emerald-700/20">
+              Y
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-950">Masuk ke Yomu</h1>
+            <p className="mt-2 text-sm text-slate-500">Selamat datang kembali di Learning OS</p>
           </div>
-        ) : null}
-        {successMessage ? (
-          <div className="mb-4 p-3 text-sm text-green-700 bg-green-100 rounded">
-            {successMessage}
-          </div>
-        ) : null}
-        
-        <input 
-          name="identifier" 
-          placeholder="Email or Username" 
-          className="p-2 border rounded"
-          onChange={handleChange} 
-          required
-        />
-        
-        <input 
-          name="password" 
-          type="password" 
-          placeholder="Password" 
-          className="p-2 border rounded"
-          onChange={handleChange} 
-          required
-        />
-        
-        <button 
-          type="submit" 
-          className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-        >
-          Login
-        </button>
 
-        <div className="flex items-center justify-center my-2 text-sm text-gray-500">
-          <span className="w-1/3 border-b"></span>
-          <span className="px-2">Atau</span>
-          <span className="w-1/3 border-b"></span>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {errorMessage ? (
+              <div className="p-3 text-sm font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
+                {errorMessage}
+              </div>
+            ) : null}
+            {successMessage ? (
+              <div className="p-3 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl">
+                {successMessage}
+              </div>
+            ) : null}
+            
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                Email atau Username
+              </label>
+              <input 
+                name="identifier" 
+                placeholder="Masukkan email atau username" 
+                className={input}
+                onChange={handleChange} 
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+                Password
+              </label>
+              <input 
+                name="password" 
+                type="password" 
+                placeholder="Masukkan password" 
+                className={input}
+                onChange={handleChange} 
+                required
+              />
+            </div>
+            
+            <button type="submit" className={primary}>
+              Masuk
+            </button>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-white/80 px-2 text-slate-500 font-semibold backdrop-blur">Atau lanjutkan dengan</span>
+              </div>
+            </div>
+
+            <button type="button" onClick={handleGoogleLogin} className={secondary}>
+              <svg className="w-5 h-5" viewBox="0 0 48 48">
+                <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20C44 22.659 43.862 21.35 43.611 20.083z"/>
+                <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
+                <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-0.792 2.237-2.231 4.166-4.087 5.571c0.001-0.001 0.002-0.001 0.003-0.002l6.19 5.238C36.971 39.205 44 34 44 24C44 22.659 43.862 21.35 43.611 20.083z"/>
+              </svg>
+              Google
+            </button>
+            
+            <p className="mt-4 text-center text-sm text-slate-500">
+              Belum punya akun? <a href="/register" className="font-bold text-emerald-700 hover:underline">Daftar sekarang</a>
+            </p>
+          </form>
         </div>
-
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          className="p-2 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20C44 22.659 43.862 21.35 43.611 20.083z"/>
-            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
-            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-0.792 2.237-2.231 4.166-4.087 5.571c0.001-0.001 0.002-0.001 0.003-0.002l6.19 5.238C36.971 39.205 44 34 44 24C44 22.659 43.862 21.35 43.611 20.083z"/>
-          </svg>
-          Masuk dengan Google
-        </button>
-      </form>
+      </div>
     </div>
   );
 };
@@ -229,46 +255,77 @@ export const RegisterModule = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-8 border rounded-lg shadow-sm">
-        <h1 className="text-xl font-bold">Register Yomu</h1>
-        {errorMessage ? (
-          <div className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded">
-            {errorMessage}
+    <div className={shell}>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className={`${panel} w-full max-w-md p-8`}>
+          <div className="text-center mb-8">
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-emerald-700 text-xl font-black text-white shadow-lg shadow-emerald-700/20">
+              Y
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-950">Daftar Akun Baru</h1>
+            <p className="mt-2 text-sm text-slate-500">Bergabung dengan Yomu Learning OS</p>
           </div>
-        ) : null}
-        {successMessage ? (
-          <div className="mb-4 p-3 text-sm text-green-700 bg-green-100 rounded">
-            {successMessage}
-          </div>
-        ) : null}
 
-        <input name="email" placeholder="Email" className="p-2 border rounded" onChange={handleChange} required />
-        <input name="fullName" placeholder="Full Name" className="p-2 border rounded" onChange={handleChange} required />
-        <input name="username" placeholder="Username" className="p-2 border rounded" onChange={handleChange} required />
-        <input name="password" type="password" placeholder="Password" className="p-2 border rounded" onChange={handleChange} required />
-        <button type="submit" className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Register</button>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {errorMessage ? (
+              <div className="p-3 text-sm font-medium text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
+                {errorMessage}
+              </div>
+            ) : null}
+            {successMessage ? (
+              <div className="p-3 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl">
+                {successMessage}
+              </div>
+            ) : null}
 
-        <div className="flex items-center justify-center my-2 text-sm text-gray-500">
-          <span className="w-1/3 border-b"></span>
-          <span className="px-2">Atau</span>
-          <span className="w-1/3 border-b"></span>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Nama Lengkap</label>
+                <input name="fullName" placeholder="John Doe" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Username</label>
+                <input name="username" placeholder="johndoe" className={input} onChange={handleChange} required />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Email</label>
+              <input name="email" type="email" placeholder="nama@email.com" className={input} onChange={handleChange} required />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Password</label>
+              <input name="password" type="password" placeholder="Minimal 6 karakter" className={input} onChange={handleChange} required />
+            </div>
+
+            <button type="submit" className={primary}>Daftar Sekarang</button>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-white/80 px-2 text-slate-500 font-semibold backdrop-blur">Atau daftar dengan</span>
+              </div>
+            </div>
+
+            <button type="button" onClick={handleGoogleRegister} className={secondary}>
+              <svg className="w-5 h-5" viewBox="0 0 48 48">
+                <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20C44 22.659 43.862 21.35 43.611 20.083z"/>
+                <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
+                <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-0.792 2.237-2.231 4.166-4.087 5.571c0.001-0.001 0.002-0.001 0.003-0.002l6.19 5.238C36.971 39.205 44 34 44 24C44 22.659 43.862 21.35 43.611 20.083z"/>
+              </svg>
+              Google
+            </button>
+            
+            <p className="mt-4 text-center text-sm text-slate-500">
+              Sudah punya akun? <a href="/login" className="font-bold text-emerald-700 hover:underline">Masuk di sini</a>
+            </p>
+          </form>
         </div>
-
-        <button
-          type="button"
-          onClick={handleGoogleRegister}
-          className="p-2 border border-gray-300 bg-white text-gray-700 rounded hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20C44 22.659 43.862 21.35 43.611 20.083z"/>
-            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"/>
-            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-0.792 2.237-2.231 4.166-4.087 5.571c0.001-0.001 0.002-0.001 0.003-0.002l6.19 5.238C36.971 39.205 44 34 44 24C44 22.659 43.862 21.35 43.611 20.083z"/>
-          </svg>
-          Daftar dengan Google
-        </button>
-      </form>
+      </div>
     </div>
   );
 };

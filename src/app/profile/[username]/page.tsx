@@ -14,6 +14,12 @@ interface UserProfile {
   createdAt: string;
 }
 
+const shell = "min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)] text-slate-900 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8";
+const panel = "w-full max-w-md rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur p-8";
+const inputStyle = "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
+const primary = "w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300";
+const secondary = "w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-400";
+
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -158,21 +164,24 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+      <div className={`${shell} justify-center items-center`}>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
-        <div className="bg-red-500/10 border border-red-500/50 backdrop-blur-md text-red-200 p-8 rounded-2xl max-w-md w-full text-center shadow-2xl">
-          <h2 className="text-xl font-bold mb-2">Oops!</h2>
-          <p>{error}</p>
+      <div className={shell}>
+        <div className={`${panel} text-center`}>
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-rose-100 text-xl font-black text-rose-700 shadow-sm">
+            !
+          </div>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 mb-2">Oops!</h2>
+          <p className="text-sm text-slate-500 mb-6">{error}</p>
           <button
             onClick={() => router.push("/")}
-            className="mt-6 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-300"
+            className={secondary}
           >
             Kembali ke Beranda
           </button>
@@ -182,104 +191,90 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background Ornaments */}
-      <div className="absolute top-0 -left-20 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-      <div className="absolute top-0 -right-20 w-96 h-96 bg-blue-600/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-      <div className="absolute -bottom-32 left-20 w-96 h-96 bg-pink-600/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+    <div className={shell}>
+      <div className={panel}>
+        <div className="text-center">
+          {/* Avatar Placeholder */}
+          <div className="relative mx-auto w-24 h-24 rounded-2xl overflow-hidden shadow-lg shadow-emerald-700/20 mb-4 grid place-items-center bg-emerald-700 text-4xl font-black text-white">
+            {profile?.fullName.charAt(0).toUpperCase()}
+          </div>
 
-      <div className="relative w-full max-w-md">
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-purple-500/10 hover:border-white/30">
-          <div className="px-8 py-10">
-            <div className="text-center">
-              {/* Avatar Placeholder */}
-              <div className="relative mx-auto w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-lg mb-6 group">
-                <div className="absolute inset-0 bg-gradient-to-tr from-purple-500 to-blue-500 opacity-80 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-white z-10">
-                  {profile?.fullName.charAt(0).toUpperCase()}
-                </div>
-              </div>
+          <h2 className="text-2xl font-black text-slate-950 tracking-tight">
+            {profile?.fullName}
+          </h2>
+          <p className="text-sm font-bold uppercase tracking-[0.1em] text-emerald-700 mb-6">@{profile?.username}</p>
 
-              <h2 className="text-3xl font-extrabold text-white tracking-tight mb-1">
-                {profile?.fullName}
-              </h2>
-              <p className="text-purple-300 font-medium text-lg mb-6">@{profile?.username}</p>
+          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Role</p>
+            <p className="text-slate-900 font-bold flex items-center gap-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              {profile?.role === "ADMIN" ? "Administrator" : "Learner"}
+            </p>
+          </div>
 
-              <div className="space-y-4 text-left mb-6">
-                <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                  <p className="text-sm text-gray-400 mb-1">Role</p>
-                  <p className="text-white font-medium flex items-center">
-                    <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-2"></span>
-                    {profile?.role === "ADMIN" ? "Administrator" : "Pengguna"}
-                  </p>
-                </div>
-              </div>
-
-              {isOwner && (
-                <div className="flex flex-col gap-3">
-                  <button 
-                    onClick={() => { setShowEditProfile(true); setFormError(""); setFormSuccess(""); }}
-                    className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors duration-300 border border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
-                  >
-                    Edit Profil
-                  </button>
-                  <button 
-                    onClick={() => { setShowChangePassword(true); setFormError(""); setFormSuccess(""); }}
-                    className="w-full py-3 px-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-colors duration-300 border border-white/20"
-                  >
-                    Ganti Password
-                  </button>
-                </div>
-              )}
+          {isOwner && (
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => { setShowEditProfile(true); setFormError(""); setFormSuccess(""); }}
+                className={primary}
+              >
+                Edit Profil
+              </button>
+              <button 
+                onClick={() => { setShowChangePassword(true); setFormError(""); setFormSuccess(""); }}
+                className={secondary}
+              >
+                Ganti Password
+              </button>
             </div>
-          </div>
-          
-          <div className="bg-black/40 px-8 py-5 flex flex-col sm:flex-row justify-center gap-4">
-            <Link 
-              href="/"
-              className="flex-1 text-center py-2 px-4 rounded-lg bg-transparent hover:bg-white/10 text-gray-300 hover:text-white font-medium transition-all duration-300 text-sm"
-            >
-              Kembali ke Beranda
-            </Link>
-          </div>
+          )}
+        </div>
+        
+        <div className="mt-6 pt-6 border-t border-slate-100 flex justify-center">
+          <Link 
+            href="/"
+            className="text-sm font-bold text-slate-500 hover:text-emerald-700 transition-colors"
+          >
+            &larr; Kembali ke Beranda
+          </Link>
         </div>
       </div>
 
       {/* Edit Profile Modal */}
       {showEditProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-purple-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
-            <button onClick={() => setShowEditProfile(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
-            <h3 className="text-2xl font-bold text-white mb-6">Edit Profil</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className={`${panel} relative`}>
+            <button onClick={() => setShowEditProfile(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 font-bold">✕</button>
+            <h3 className="text-xl font-black text-slate-950 mb-6">Edit Profil</h3>
             
-            {formError && <div className="mb-4 p-3 bg-red-500/20 border border-red-500 text-red-200 rounded-lg text-sm">{formError}</div>}
-            {formSuccess && <div className="mb-4 p-3 bg-green-500/20 border border-green-500 text-green-200 rounded-lg text-sm">{formSuccess}</div>}
+            {formError && <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-medium">{formError}</div>}
+            {formSuccess && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-medium">{formSuccess}</div>}
             
             <form onSubmit={handleEditProfile} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Nama Lengkap</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Nama Lengkap</label>
                 <input 
                   type="text" 
                   value={editFormData.fullName}
                   onChange={(e) => setEditFormData({...editFormData, fullName: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                  className={inputStyle}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Username</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Username</label>
                 <input 
                   type="text" 
                   value={editFormData.username}
                   onChange={(e) => setEditFormData({...editFormData, username: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                  className={inputStyle}
                   required
                 />
               </div>
               <button 
                 type="submit" 
                 disabled={isSubmitting}
-                className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white rounded-xl font-medium transition-colors duration-300 mt-2"
+                className={`${primary} mt-2`}
               >
                 {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
               </button>
@@ -290,32 +285,32 @@ export default function ProfilePage() {
 
       {/* Change Password Modal */}
       {showChangePassword && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-purple-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
-            <button onClick={() => setShowChangePassword(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white">✕</button>
-            <h3 className="text-2xl font-bold text-white mb-6">Ganti Password</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className={`${panel} relative`}>
+            <button onClick={() => setShowChangePassword(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 font-bold">✕</button>
+            <h3 className="text-xl font-black text-slate-950 mb-6">Ganti Password</h3>
             
-            {formError && <div className="mb-4 p-3 bg-red-500/20 border border-red-500 text-red-200 rounded-lg text-sm">{formError}</div>}
-            {formSuccess && <div className="mb-4 p-3 bg-green-500/20 border border-green-500 text-green-200 rounded-lg text-sm">{formSuccess}</div>}
+            {formError && <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-medium">{formError}</div>}
+            {formSuccess && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-medium">{formSuccess}</div>}
             
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Password Lama</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Password Lama</label>
                 <input 
                   type="password" 
                   value={pwdFormData.oldPassword}
                   onChange={(e) => setPwdFormData({...pwdFormData, oldPassword: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                  className={inputStyle}
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Password Baru</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Password Baru</label>
                 <input 
                   type="password" 
                   value={pwdFormData.newPassword}
                   onChange={(e) => setPwdFormData({...pwdFormData, newPassword: e.target.value})}
-                  className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                  className={inputStyle}
                   required
                   minLength={8}
                 />
@@ -323,7 +318,7 @@ export default function ProfilePage() {
               <button 
                 type="submit" 
                 disabled={isSubmitting}
-                className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white rounded-xl font-medium transition-colors duration-300 mt-2"
+                className={`${primary} mt-2`}
               >
                 {isSubmitting ? "Mengubah..." : "Ganti Password"}
               </button>
