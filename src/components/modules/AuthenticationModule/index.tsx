@@ -72,7 +72,7 @@ export const LoginModule = () => {
         if (user.role === "ADMIN") {
           window.location.href = "/admin";
         } else {
-          window.location.href = "/dashboard";
+          window.location.href = "/";
         }
       } else {
         let message = "Login gagal. Email/Username atau password salah.";

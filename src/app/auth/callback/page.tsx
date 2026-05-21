@@ -24,8 +24,8 @@ export default function AuthCallbackPage() {
         // to sync the user or obtain your own app's JWT, 
         // or just redirect the user to the dashboard.
         
-        // For now, simply redirecting to dashboard:
-        router.push("/dashboard");
+        // For now, simply redirecting to home:
+        router.push("/");
       } else {
         router.push("/login");
       }
