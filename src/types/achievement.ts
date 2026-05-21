@@ -47,6 +47,7 @@ export interface DailyMissionMasterDto {
   namaMisi: string;
   milestoneTarget: number;
   poinReward: number;
+  milestoneType: string;
 }
 
 /** In-progress achievement DTO */

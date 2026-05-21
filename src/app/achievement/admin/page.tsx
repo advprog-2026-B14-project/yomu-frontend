@@ -121,6 +121,7 @@ export default function AdminGamificationPage() {
       namaMisi: formData.get("namaMisi") as string,
       milestoneTarget: Number(formData.get("milestoneTarget")),
       poinReward: Number(formData.get("poinReward")),
+      milestoneType: formData.get("milestoneType") as string,
     };
 
     try {
@@ -303,7 +304,15 @@ export default function AdminGamificationPage() {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 mb-1 block">Milestone Type</label>
-                  <input name="milestoneType" defaultValue={editAch?.milestoneType || "STREAK"} required className={inputClass} />
+                  <select name="milestoneType" defaultValue={editAch?.milestoneType || "STREAK"} required className={inputClass}>
+                    <option value="BACA">BACA</option>
+                    <option value="FORUM">FORUM</option>
+                    <option value="KUIS">KUIS</option>
+                    <option value="STREAK">STREAK</option>
+                    <option value="XP">XP</option>
+                    <option value="LEVEL">LEVEL</option>
+                    <option value="GENERAL">GENERAL</option>
+                  </select>
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 mb-1 block">Badge URL</label>
@@ -337,6 +346,18 @@ export default function AdminGamificationPage() {
                     <label className="text-xs font-bold text-slate-500 mb-1 block">Poin Reward</label>
                     <input name="poinReward" type="number" defaultValue={editMis?.poinReward || 50} required className={inputClass} />
                   </div>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 mb-1 block">Milestone Type</label>
+                  <select name="milestoneType" defaultValue={editMis?.milestoneType || "STREAK"} required className={inputClass}>
+                    <option value="BACA">BACA</option>
+                    <option value="FORUM">FORUM</option>
+                    <option value="KUIS">KUIS</option>
+                    <option value="STREAK">STREAK</option>
+                    <option value="XP">XP</option>
+                    <option value="LEVEL">LEVEL</option>
+                    <option value="GENERAL">GENERAL</option>
+                  </select>
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <button type="button" onClick={() => setShowMisModal(false)} className={secondary}>Cancel</button>
