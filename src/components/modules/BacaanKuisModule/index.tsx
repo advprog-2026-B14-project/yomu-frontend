@@ -96,8 +96,8 @@ const estimateReadingTime = (content: string) => {
 };
 
 const toForumReadingId = (readingId: number) => {
-  const suffix = `44665544${readingId.toString(16).padStart(4, "0").slice(-4)}`;
-  return `770e8400-e29b-41d4-a716-${suffix}`;
+  const suffix = readingId.toString(16).padStart(12, "0").slice(-12);
+  return `00000000-0000-4000-8000-${suffix}`;
 };
 
 export const BacaanKuisModule = () => {
