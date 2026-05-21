@@ -8,9 +8,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "http://localh
 // --- TYPESCRIPT DEFINITIONS ---
 type Clan = {
     id: string;
-    name: string;
+    namaClan: string;
     tier: string;
-    score: number;
+    totalSkor: number;
     description?: string;
     hasProductivityBuff?: boolean;
     hasLowAccuracyDebuff?: boolean;
@@ -55,8 +55,7 @@ export const InteraksiSosialLigaModule = () => {
     const fetchLeaderboard = async () => {
         setIsLoading(true);
         try {
-            // TODO: Ganti "/api/clans/leaderboard" dengan endpoint asli dari Spring Boot kamu
-            const res = await fetch(`${API_BASE_URL}/api/clans/leaderboard`);
+            const res = await fetch(`${API_BASE_URL}/liga/leaderboard`);
             if (!res.ok) throw new Error("Gagal mengambil data klasemen");
             const data = await res.json();
             setLeaderboard(data || []);
@@ -178,7 +177,7 @@ export const InteraksiSosialLigaModule = () => {
                     {/* CLAN STATUS CARD */}
                     <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white">
                         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">Status Klan</p>
-                        <p className="mt-2 text-2xl font-black">{myClan?.name || "Belum Bergabung"}</p>
+                        <p className="mt-2 text-2xl font-black">{myClan?.namaClan || "Belum Bergabung"}</p>
                         {myClan && (
                             <div className="mt-3 flex gap-2 flex-wrap">
                 <span className="rounded-full bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300 border border-amber-500/30">
@@ -218,7 +217,7 @@ export const InteraksiSosialLigaModule = () => {
                     {/* STATS CARDS */}
                     <section className="mb-4 grid gap-3 md:grid-cols-3">
                         <StatCard label="Total Klan" value={leaderboard.length.toString()} tone="emerald" />
-                        <StatCard label="Poin Tertinggi" value={leaderboard[0]?.score?.toLocaleString() || "0"} tone="amber" />
+                        <StatCard label="Poin Tertinggi" value={leaderboard[0]?.totalSkor?.toLocaleString() || "0"} tone="amber" />
                         <StatCard label="Musim" value="Season 1" tone="purple" />
                     </section>
 
@@ -263,9 +262,9 @@ export const InteraksiSosialLigaModule = () => {
                                             return (
                                                 <tr key={clan.id} className={color}>
                                                     <td className="border-b border-slate-100 px-4 py-4 text-center font-black text-slate-500">#{rank}</td>
-                                                    <td className="border-b border-slate-100 px-4 py-4 font-bold text-slate-900">{clan.name}</td>
+                                                    <td className="border-b border-slate-100 px-4 py-4 font-bold text-slate-900">{clan.namaClan}</td>
                                                     <td className="border-b border-slate-100 px-4 py-4 font-semibold text-slate-600">{clan.tier}</td>
-                                                    <td className="border-b border-slate-100 px-4 py-4 text-right font-black text-emerald-700">{clan.score?.toLocaleString()}</td>
+                                                    <td className="border-b border-slate-100 px-4 py-4 text-right font-black text-emerald-700">{clan.totalSkor?.toLocaleString()}</td>
                                                 </tr>
                                             );
                                         })
