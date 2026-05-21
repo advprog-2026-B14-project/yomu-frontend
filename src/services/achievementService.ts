@@ -13,7 +13,7 @@ import type {
 } from "@/types/achievement";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_ACHIEVEMENTS_API_URL ?? "/api/backend";
+  process.env.NEXT_PUBLIC_GATEWAY_URL ?? "/api/backend";
 
 /** Resolves a path against the configured API base URL. */
 const toUrl = (path: string): string =>
