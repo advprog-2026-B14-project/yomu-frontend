@@ -7,7 +7,14 @@ const API_BASE_PATH = "/api/diskusi-forum";
 const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
 const REACTIONS_API_BASE_URL = `${API_BASE_PATH}/reactions`;
 
-type ReactionType = "API" | "ROKET" | "TERTAWA" | "CONFETI" | "EMOT_BERTANYA";
+type ReactionType =
+  | "UPVOTE"
+  | "DOWNVOTE"
+  | "EMOJI_CELEBRATE"
+  | "EMOJI_THUMBS_UP"
+  | "EMOJI_LAUGH"
+  | "EMOJI_HEART"
+  | "EMOJI_THINKING";
 
 type Reaction = {
   id: string;
@@ -26,24 +33,39 @@ type CommentItem = {
 
 type DiskusiForumModuleProps = {
   readingId?: string;
+  readingTitle?: string;
   className?: string;
 };
 
 const DEFAULT_READING_ID = "770e8400-e29b-41d4-a716-446655440001";
+const DEFAULT_READING_TITLE = "Judul Bacaan Default";
+
+const shell = "w-full font-sans";
+const panel =
+  "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur mx-auto w-full max-w-4xl p-6 sm:p-8";
+const input =
+  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
+const primary =
+  "rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300";
+const secondary =
+  "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-400";
+const danger =
+  "rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300";
 
 const REACTION_OPTIONS: Array<{
   emoji: string;
   type: ReactionType;
 }> = [
-  { emoji: "🔥", type: "API" },
-  { emoji: "🚀", type: "ROKET" },
-  { emoji: "😂", type: "TERTAWA" },
-  { emoji: "🎉", type: "CONFETI" },
-  { emoji: "🤔", type: "EMOT_BERTANYA" },
+  { emoji: "🔥", type: "EMOJI_HEART" },
+  { emoji: "🚀", type: "EMOJI_THUMBS_UP" },
+  { emoji: "😂", type: "EMOJI_LAUGH" },
+  { emoji: "🎉", type: "EMOJI_CELEBRATE" },
+  { emoji: "🤔", type: "EMOJI_THINKING" },
 ];
 
 export const DiskusiForumModule = ({
   readingId = DEFAULT_READING_ID,
+  readingTitle = DEFAULT_READING_TITLE,
   className = "",
 }: DiskusiForumModuleProps) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
@@ -54,41 +76,39 @@ export const DiskusiForumModule = ({
 
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState("");
-  const [loadingReactionKey, setLoadingReactionKey] = useState<string | null>(
-    null,
+  const [loadingReactions, setLoadingReactions] = useState<Set<string>>(
+    () => new Set(),
   );
 
   const currentUserId = "550e8400-e29b-41d4-a716-446655440000";
 
   const fetchComments = useCallback(async () => {
     try {
-      const url = new URL(COMMENTS_API_BASE_URL, window.location.origin);
-      url.searchParams.set("readingId", readingId);
-
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error("Gagal mengambil data dari AWS");
+      const res = await fetch(`${COMMENTS_API_BASE_URL}/reading/${readingId}`);
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(
+          `Gagal mengambil data (${res.status} ${res.statusText})${
+            errorBody ? `: ${errorBody}` : ""
+          }`,
+        );
+      }
       const data: CommentItem[] = await res.json();
 
-      const filteredComments = data.filter(
-        (comment) => !comment.readingId || comment.readingId === readingId,
-      );
-
       const commentsWithReactions = await Promise.all(
-        (Array.isArray(filteredComments) ? filteredComments : []).map(
-          async (comment) => {
-            try {
-              const reactionRes = await fetch(
-                `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
-              );
-              const reactions: Reaction[] = reactionRes.ok
-                ? await reactionRes.json()
-                : [];
-              return { ...comment, reactions };
-            } catch {
-              return { ...comment, reactions: [] };
-            }
-          },
-        ),
+        (Array.isArray(data) ? data : []).map(async (comment) => {
+          try {
+            const reactionRes = await fetch(
+              `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
+            );
+            const reactions: Reaction[] = reactionRes.ok
+              ? await reactionRes.json()
+              : [];
+            return { ...comment, reactions };
+          } catch {
+            return { ...comment, reactions: [] };
+          }
+        }),
       );
 
       setComments(commentsWithReactions);
@@ -143,7 +163,10 @@ export const DiskusiForumModule = ({
       const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editContent }),
+        body: JSON.stringify({
+          userId: currentUserId,
+          content: editContent,
+        }),
       });
       if (!res.ok) throw new Error("Gagal mengupdate komentar");
       setEditingId(null);
@@ -154,13 +177,16 @@ export const DiskusiForumModule = ({
       setErrorMsg(message);
     }
   };
-  //
+
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus komentar ini?")) return;
     try {
-      const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `${COMMENTS_API_BASE_URL}/${id}?userId=${currentUserId}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (!res.ok) throw new Error("Gagal menghapus komentar");
       await fetchComments();
     } catch (err) {
@@ -178,6 +204,23 @@ export const DiskusiForumModule = ({
     comment.reactions?.filter(
       (reaction) => reaction.reactionType === reactionType,
     ).length || 0;
+
+  const syncCommentReactions = async (commentId: string) => {
+    try {
+      const reactionRes = await fetch(
+        `${REACTIONS_API_BASE_URL}/comment/${commentId}`,
+      );
+      const reactions: Reaction[] = reactionRes.ok
+        ? await reactionRes.json()
+        : [];
+
+      setComments((previousComments) =>
+        previousComments.map((comment) =>
+          comment.id === commentId ? { ...comment, reactions } : comment,
+        ),
+      );
+    } catch {}
+  };
 
   const updateCommentsOptimistically = (
     commentId: string,
@@ -218,7 +261,9 @@ export const DiskusiForumModule = ({
 
   const handleReact = async (commentId: string, reactionType: ReactionType) => {
     const reactionKey = `${commentId}:${reactionType}`;
-    setLoadingReactionKey(reactionKey);
+
+    if (loadingReactions.has(reactionKey)) return;
+    setLoadingReactions((prev) => new Set(prev).add(reactionKey));
 
     const previousComments = comments;
     const currentComment = previousComments.find(
@@ -233,23 +278,11 @@ export const DiskusiForumModule = ({
     try {
       if (existingReaction && existingReaction.reactionType === reactionType) {
         const deleteRes = await fetch(
-          `${REACTIONS_API_BASE_URL}/${existingReaction.id}`,
-          {
-            method: "DELETE",
-          },
+          `${REACTIONS_API_BASE_URL}/${existingReaction.id}?userId=${currentUserId}`,
+          { method: "DELETE" },
         );
         if (!deleteRes.ok) throw new Error("Gagal menghapus reaction");
       } else {
-        if (existingReaction) {
-          const deleteRes = await fetch(
-            `${REACTIONS_API_BASE_URL}/${existingReaction.id}`,
-            {
-              method: "DELETE",
-            },
-          );
-          if (!deleteRes.ok) throw new Error("Gagal mengganti reaction");
-        }
-
         const addRes = await fetch(REACTIONS_API_BASE_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -261,13 +294,19 @@ export const DiskusiForumModule = ({
         });
         if (!addRes.ok) throw new Error("Gagal menambahkan reaction");
       }
+
+      void syncCommentReactions(commentId);
     } catch (err) {
       setComments(previousComments);
       const message =
         err instanceof Error ? err.message : "Gagal memberikan reaction";
       setErrorMsg(message);
     } finally {
-      setLoadingReactionKey(null);
+      setLoadingReactions((prev) => {
+        const next = new Set(prev);
+        next.delete(reactionKey);
+        return next;
+      });
     }
   };
 
@@ -306,8 +345,9 @@ export const DiskusiForumModule = ({
           <div className="flex flex-wrap gap-2 mb-4">
             {REACTION_OPTIONS.map((option) => {
               const count = getReactionCount(comment, option.type);
-              const loading =
-                loadingReactionKey === `${comment.id}:${option.type}`;
+              const loading = loadingReactions.has(
+                `${comment.id}:${option.type}`,
+              );
               const userReacted =
                 comment.reactions?.some(
                   (reaction) =>
@@ -338,7 +378,7 @@ export const DiskusiForumModule = ({
             <button
               type="button"
               onClick={() => setReplyingToId(comment.id)}
-              className="hover:text-blue-600 transition">
+              className={`${secondary} px-3`}>
               Balas
             </button>
             <button
@@ -347,13 +387,13 @@ export const DiskusiForumModule = ({
                 setEditingId(comment.id);
                 setEditContent(comment.content);
               }}
-              className="hover:text-amber-600 transition">
+              className={`${secondary} px-3`}>
               Edit
             </button>
             <button
               type="button"
               onClick={() => handleDelete(comment.id)}
-              className="hover:text-red-600 transition">
+              className={`${danger}`}>
               Hapus
             </button>
           </div>
@@ -361,9 +401,9 @@ export const DiskusiForumModule = ({
       )}
 
       {replyingToId === comment.id && (
-        <div className="mt-4 space-y-3 pl-4 border-l-2 border-blue-500">
+        <div className="mt-4 space-y-3 pl-4 border-l-2 border-emerald-200">
           <textarea
-            className="w-full p-3 rounded-lg border border-zinc-300 dark:bg-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+            className={`${input} p-3 bg-transparent`}
             placeholder="Tulis balasan..."
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
@@ -372,13 +412,13 @@ export const DiskusiForumModule = ({
             <button
               type="button"
               onClick={() => handleReply(comment.id)}
-              className="bg-blue-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-blue-700 transition">
+              className={`${primary} px-3 py-1.5 text-sm`}>
               Balas
             </button>
             <button
               type="button"
               onClick={() => setReplyingToId(null)}
-              className="bg-zinc-500 text-white px-4 py-1.5 rounded-md text-sm hover:bg-zinc-600 transition">
+              className={`${secondary} px-3 py-1.5 text-sm`}>
               Batal
             </button>
           </div>
@@ -392,24 +432,29 @@ export const DiskusiForumModule = ({
   );
 
   return (
-    <section className={`w-full font-sans ${className}`.trim()}>
-      <div className="mx-auto w-full max-w-4xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-8">
+    <section className={`${shell} ${className}`.trim()}>
+      <div className={panel}>
         <div className="space-y-8">
-          <h1 className="text-3xl font-bold text-center dark:text-white">
-            Yomu Forum Diskusi
-          </h1>
+          {readingTitle ? (
+            <div className="space-y-2 text-center">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
+                Diskusi bacaan
+              </p>
+              <h2 className="text-2xl font-black text-slate-950 sm:text-3xl">
+                {readingTitle}
+              </h2>
+            </div>
+          ) : null}
 
           <form onSubmit={handleCreate} className="space-y-4">
             <textarea
-              className="w-full p-4 rounded-xl border border-zinc-200 bg-transparent dark:border-zinc-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              className={`${input} p-4 bg-transparent`}
               placeholder="Apa pendapatmu mengenai bacaan ini?"
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               required
             />
-            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold shadow-md shadow-blue-500/20">
-              Kirim Komentar
-            </button>
+            <button className={`${primary}`}>Kirim Komentar</button>
           </form>
 
           {errorMsg && (
