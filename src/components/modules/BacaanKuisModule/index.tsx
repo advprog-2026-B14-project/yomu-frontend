@@ -985,7 +985,7 @@ export const BacaanKuisModule = () => {
           )}
 
           {activeView === "forum" && (
-            <DiskusiForumModule />
+            <DiskusiForumModule readingId={selectedReading ? String(selectedReading.id) : undefined} />
           )}
 
           {activeView === "admin" && (
