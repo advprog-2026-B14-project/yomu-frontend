@@ -26,10 +26,12 @@ type CommentItem = {
 
 type DiskusiForumModuleProps = {
   readingId?: string;
+  readingTitle?: string;
   className?: string;
 };
 
 const DEFAULT_READING_ID = "770e8400-e29b-41d4-a716-446655440001";
+const DEFAULT_READING_TITLE = "Bacaan pilihan";
 
 const REACTION_OPTIONS: Array<{
   emoji: string;
@@ -44,6 +46,7 @@ const REACTION_OPTIONS: Array<{
 
 export const DiskusiForumModule = ({
   readingId = DEFAULT_READING_ID,
+  readingTitle = DEFAULT_READING_TITLE,
   className = "",
 }: DiskusiForumModuleProps) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
@@ -398,6 +401,9 @@ export const DiskusiForumModule = ({
           <h1 className="text-3xl font-bold text-center dark:text-white">
             Yomu Forum Diskusi
           </h1>
+          <p className="text-center text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            Bacaan: {readingTitle}
+          </p>
 
           <form onSubmit={handleCreate} className="space-y-4">
             <textarea
