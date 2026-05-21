@@ -219,6 +219,11 @@ export const RegisterModule = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    if (formData.username.includes(" ")) {
+      setErrorMessage("Username tidak boleh mengandung spasi.");
+      return;
+    }
+
     try {
       const response = await fetch(`/api/auth/register`, {
         method: "POST",

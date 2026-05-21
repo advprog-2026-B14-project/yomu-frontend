@@ -85,6 +85,12 @@ export default function ProfilePage() {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
+
+    if (editFormData.username.includes(" ")) {
+      setFormError("Username tidak boleh mengandung spasi.");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
