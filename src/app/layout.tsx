@@ -26,7 +26,32 @@ export default function RootLayout({
   const clarityProjectId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 
   return (
-    <html lang="en">
+    <html lang="id">
+      <head>
+        {/*
+         * Microsoft Clarity — Usability Heatmap & Session Recording
+         *
+         * IMPORTANT: Replace "YOUR_PROJECT_ID" with your real Clarity Project ID.
+         * Get yours at: https://clarity.microsoft.com → New Project → Setup
+         *
+         * This script uses next/script with strategy="afterInteractive" so it
+         * loads AFTER the page is interactive — ensuring Core Web Vitals (LCP,
+         * FID, CLS) are NOT impacted by the analytics script.
+         */}
+        <Script
+          id="microsoft-clarity"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "wu72sgrhmy");
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
