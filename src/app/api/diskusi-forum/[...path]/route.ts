@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:8080";
+const DISKUSI_FORUM_API_URL =
+  process.env.DISKUSI_FORUM_API_URL ?? "https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app";
 
 const hopByHopHeaders = new Set([
-  "access-control-request-headers",
-  "access-control-request-method",
   "connection",
   "content-encoding",
   "content-length",
@@ -23,7 +22,10 @@ const proxy = async (
   context: { params: Promise<{ path?: string[] }> }
 ) => {
   const { path = [] } = await context.params;
-  const target = new URL(path.join("/"), `${BACKEND_API_URL.replace(/\/$/, "")}/`);
+  const target = new URL(
+    `/api/${path.join("/")}`,
+    `${DISKUSI_FORUM_API_URL.replace(/\/$/, "")}/`
+  );
   target.search = request.nextUrl.search;
 
   const headers = new Headers(request.headers);

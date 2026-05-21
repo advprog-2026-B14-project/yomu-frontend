@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+*.pdf
+.idea/
 milestones.csv
 yomu-bacaan-dan-kuis/
 
@@ -41,3 +43,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local AI rubric/planning notes
+Penilaian.md
+Presentasi.md
+API_CONTRACT.md
+docs/PERFORMANCE_FINAL_GUIDE.md
+
+# generated performance evidence
+docs/reports/*
+!docs/reports/README.md
+scripts/run-apdex-bacaan-kuis.mjs

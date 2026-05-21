@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { DiskusiForumModule } from "@/components/modules/DiskusiForumModule";
 
 type Category = {
   id: number;
@@ -34,11 +35,27 @@ type LearnerReadingResponse = {
 };
 
 type LearnerQuestion = {
+  id: number;
   question: string;
   optionA: string;
   optionB: string;
   optionC: string;
   optionD: string;
+};
+
+type LearnerSubmitQuizResponse = {
+  score: number;
+  totalQuestions: number;
+  correctAnswers: Record<number, string>;
+};
+
+type LeagueStatisticsResponse = {
+  studentId: string;
+  completedQuizCount: number;
+  totalCorrectAnswers: number;
+  totalAnsweredQuestions: number;
+  accuracyRate: number;
+  accuracyPercentage: number;
 };
 
 type ReadingForm = {
@@ -94,6 +111,10 @@ export const BacaanKuisModule = () => {
   const [learnerQuestions, setLearnerQuestions] = useState<LearnerQuestion[]>([]);
   const [learnerQuizIds, setLearnerQuizIds] = useState<number[]>([]);
   const [learnerAnswers, setLearnerAnswers] = useState<Record<number, string>>({});
+  const [reviewCorrectAnswers, setReviewCorrectAnswers] = useState<Record<number, string>>({});
+  const [leagueStatistics, setLeagueStatistics] = useState<LeagueStatisticsResponse | null>(null);
+  const [leagueStatsError, setLeagueStatsError] = useState<string | null>(null);
+  const [leagueStatsSyncedAt, setLeagueStatsSyncedAt] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [quizStarted, setQuizStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -140,6 +161,30 @@ export const BacaanKuisModule = () => {
     : 0;
   const estimatedMinutes = readingView?.content ? estimateReadingTime(readingView.content) : 0;
   const xpPreview = Math.max(40, learnerQuestions.length * 20);
+  const correctAnswerCount =
+    score === null || !learnerQuestions.length
+      ? 0
+      : scoreIsPercentage
+        ? Math.round((Math.min(score, 100) / 100) * learnerQuestions.length)
+        : Math.min(score, learnerQuestions.length);
+  const localLeagueStats = {
+    accuracy: normalizedScorePercent,
+    completedQuiz: score === null ? 0 : 1,
+    answeredQuestions: answeredCount,
+    correctAnswers: correctAnswerCount,
+    frequency: score === null ? "Belum submit" : `${learnerQuestions.length} jawaban/sesi`,
+    status: score === null ? "Menunggu submit quiz" : "Siap dikirim ke Modul Liga",
+  };
+  const leagueStats = leagueStatistics
+    ? {
+        accuracy: leagueStatistics.accuracyPercentage,
+        completedQuiz: leagueStatistics.completedQuizCount,
+        answeredQuestions: leagueStatistics.totalAnsweredQuestions,
+        correctAnswers: leagueStatistics.totalCorrectAnswers,
+        frequency: `${leagueStatistics.completedQuizCount} kuis selesai`,
+        status: "Sinkron real-time dari endpoint internal Modul Liga",
+      }
+    : localLeagueStats;
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
     setToast({ message, type });
@@ -174,14 +219,12 @@ export const BacaanKuisModule = () => {
 
     if (!response.ok) {
       let message = `HTTP ${response.status}`;
-      try {
-        const payload = await response.json();
-        if (payload.message) {
-          message = payload.message;
-        }
-      } catch {
-        const bodyText = await response.text();
-        if (bodyText) {
+      const bodyText = await response.text();
+      if (bodyText) {
+        try {
+          const payload = JSON.parse(bodyText) as { message?: string };
+          message = payload.message ?? bodyText;
+        } catch {
           message = bodyText;
         }
       }
@@ -246,9 +289,39 @@ export const BacaanKuisModule = () => {
     setLearnerQuestions([]);
     setLearnerQuizIds([]);
     setLearnerAnswers({});
+    setReviewCorrectAnswers({});
     setScore(null);
     setQuizStarted(false);
     setCurrentQuestion(0);
+  };
+
+  const fetchLeagueStatistics = async (sid = studentId.trim()) => {
+    if (!sid) {
+      setLeagueStatistics(null);
+      setLeagueStatsError(null);
+      setLeagueStatsSyncedAt(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/league/statistics/students/${encodeURIComponent(sid)}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `HTTP ${response.status}`);
+      }
+
+      const payload = (await response.json()) as LeagueStatisticsResponse;
+      setLeagueStatistics(payload);
+      setLeagueStatsError(null);
+      setLeagueStatsSyncedAt(new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    } catch (error) {
+      setLeagueStatistics(null);
+      setLeagueStatsError(error instanceof Error ? error.message : "Gagal mengambil statistik Liga.");
+      setLeagueStatsSyncedAt(null);
+    }
   };
 
   const loadLearnerReading = async () => {
@@ -263,8 +336,10 @@ export const BacaanKuisModule = () => {
     setLearnerQuestions([]);
     setLearnerQuizIds([]);
     setLearnerAnswers({});
+    setReviewCorrectAnswers({});
     setScore(null);
     setActiveView("learn");
+    await fetchLeagueStatistics(sid);
     showToast("Bacaan berhasil dimuat");
   };
 
@@ -280,20 +355,18 @@ export const BacaanKuisModule = () => {
   const fetchQuestions = async () => {
     const sid = requireStudentId();
     const readingId = getSelectedReadingNumber();
-    const [questions, quizData] = await Promise.all([
-      api<LearnerQuestion[]>(`/api/learner/readings/${readingId}/quiz`, {
-        headers: { "X-Student-Id": sid },
-      }),
-      api<Quiz[]>("/api/admin/quizzes"),
-    ]);
+    const questions = await api<LearnerQuestion[]>(`/api/learner/readings/${readingId}/quiz`, {
+      headers: { "X-Student-Id": sid },
+    });
 
-    const ids = quizData.filter((quiz) => quiz.readingId === readingId).map((quiz) => quiz.id);
+    const ids = questions.map((question) => question.id);
     setLearnerQuestions(questions);
     setLearnerQuizIds(ids);
     setLearnerAnswers({});
+    setReviewCorrectAnswers({});
     setCurrentQuestion(0);
 
-    if (ids.length !== questions.length) {
+    if (ids.some((id) => typeof id !== "number")) {
       showToast("Peringatan: ID kuis tidak sinkron dengan data soal", "error");
       return;
     }
@@ -334,7 +407,7 @@ export const BacaanKuisModule = () => {
       }
     });
 
-    const result = await api<{ score: number }>(`/api/learner/readings/${readingId}/quiz/submit`, {
+    const result = await api<LearnerSubmitQuizResponse>(`/api/learner/readings/${readingId}/quiz/submit`, {
       method: "POST",
       headers: { "X-Student-Id": sid },
       body: JSON.stringify({ answers }),
@@ -345,8 +418,10 @@ export const BacaanKuisModule = () => {
     const submittedSummary = submittedScoreIsPercentage ? `${submittedScore}%` : `${submittedScore}/${learnerQuestions.length}`;
 
     setScore(submittedScore);
+    setReviewCorrectAnswers(result.correctAnswers ?? {});
     setQuizStarted(false);
     setCurrentQuestion(0);
+    await fetchLeagueStatistics(sid);
     showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };
 
@@ -547,6 +622,39 @@ export const BacaanKuisModule = () => {
             <StatCard label="Quiz Progress" value={`${quizProgress}%`} tone="purple" />
           </section>
 
+          <section className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className={`${subtlePanel} p-4`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Statistik Liga</p>
+                  <h2 className="mt-1 text-xl font-black tracking-tight">Akurasi dan frekuensi belajar</h2>
+                </div>
+                <button
+                  type="button"
+                  className={`${secondary} px-3 py-2 text-xs`}
+                  onClick={() => withLoading("sync-league", async () => fetchLeagueStatistics())}
+                  disabled={loadingAction === "sync-league" || !studentId.trim()}
+                >
+                  {loadingAction === "sync-league" ? "Sync..." : "Sync Liga"}
+                </button>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                <MiniMetric label="Accuracy" value={`${leagueStats.accuracy}%`} />
+                <MiniMetric label="Correct" value={`${leagueStats.correctAnswers}/${leagueStats.answeredQuestions || 0}`} />
+                <MiniMetric label="Frequency" value={leagueStats.frequency} />
+                <MiniMetric label="Completed" value={leagueStats.completedQuiz} />
+              </div>
+              {leagueStatsSyncedAt && <p className="mt-3 text-xs font-semibold text-emerald-700">Terakhir sinkron: {leagueStatsSyncedAt}</p>}
+              {leagueStatsError && <p className="mt-3 text-xs font-semibold text-amber-700">Fallback sesi aktif: {leagueStatsError}</p>}
+            </div>
+            <div className={`${subtlePanel} p-4`}>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">League Payload</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {leagueStats.status}. Data yang disiapkan: studentId, readingId, akurasi, jumlah jawaban benar, dan frekuensi sesi.
+              </p>
+            </div>
+          </section>
+
           <div className="mb-4 grid gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden md:grid-cols-4">
             {[
               ["learn", "Bacaan"],
@@ -703,23 +811,30 @@ export const BacaanKuisModule = () => {
                   <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${quizProgress}%` }} />
                 </div>
 
-                {score !== null ? (
-                  <div className="overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-6 text-center">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Quiz Completed</p>
-                    <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Hasil belajarmu sudah tercatat</h3>
-                    <div className="mx-auto mt-6 grid h-44 w-44 place-items-center rounded-full bg-slate-950 text-white shadow-2xl shadow-emerald-900/15">
+                {score !== null && (
+                  <div className="mb-5 overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-5">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                       <div>
-                        <p className="text-5xl font-black">{scoreSummary}</p>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Quiz Completed</p>
+                        <h3 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Hasil belajarmu sudah tercatat</h3>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          Mode review aktif. Jawaban yang sudah dipilih tetap terlihat, tetapi tidak bisa diubah lagi.
+                        </p>
+                      </div>
+                      <div className="grid min-w-32 place-items-center rounded-2xl bg-slate-950 px-5 py-4 text-white">
+                        <p className="text-3xl font-black">{scoreSummary}</p>
                         <p className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-300">Score</p>
                       </div>
                     </div>
-                    <div className="mx-auto mt-6 h-3 max-w-md rounded-full bg-slate-200">
+                    <div className="mt-4 h-3 rounded-full bg-slate-200">
                       <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${Math.min(100, normalizedScorePercent)}%` }} />
                     </div>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      Kamu mendapat {normalizedScorePercent}% pemahaman pada kuis ini dan memperoleh estimasi {xpPreview} XP.
-                    </p>
-                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                    <div className="mt-4 grid gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:grid-cols-3">
+                      <MiniMetric label="League Accuracy" value={`${leagueStats.accuracy}%`} />
+                      <MiniMetric label="Correct Answer" value={`${leagueStats.correctAnswers}/${learnerQuestions.length}`} />
+                      <MiniMetric label="Frequency" value={leagueStats.frequency} />
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
                       <button
                         type="button"
                         className={primary}
@@ -728,47 +843,55 @@ export const BacaanKuisModule = () => {
                           setLearnerQuestions([]);
                           setLearnerQuizIds([]);
                           setLearnerAnswers({});
+                          setReviewCorrectAnswers({});
+                          setScore(null);
                         }}
                       >
                         Kembali ke Bacaan
                       </button>
-                      <button
-                        type="button"
-                        className={secondary}
-                        onClick={() => {
-                          setScore(null);
-                          setLearnerAnswers({});
-                          setCurrentQuestion(0);
-                        }}
-                      >
+                      <button type="button" className={secondary} onClick={() => setCurrentQuestion(0)}>
                         Lihat Soal Lagi
                       </button>
                     </div>
                   </div>
-                ) : activeQuestion ? (
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                )}
+
+                {activeQuestion ? (
+                  <div className={`rounded-3xl border p-5 ${score !== null ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200 bg-slate-50"}`}>
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600 shadow-sm">
                         Pertanyaan {currentQuestion + 1}/{learnerQuestions.length}
                       </span>
-                      <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-black text-purple-700">Medium</span>
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${score !== null ? "bg-emerald-100 text-emerald-700" : "bg-purple-100 text-purple-700"}`}>
+                        {score !== null ? "Review" : "Medium"}
+                      </span>
                     </div>
                     <h3 className="text-xl font-black leading-8 text-slate-950">{activeQuestion.question}</h3>
                     <div className="mt-5 grid gap-3">
                       {optionKeys.map((key) => {
                         const selected = learnerAnswers[currentQuestion] === key;
+                        const correctAnswer = reviewCorrectAnswers[activeQuestion.id];
+                        const isCorrectOption = score !== null && correctAnswer === key;
+                        const isSelectedWrong = score !== null && selected && correctAnswer && correctAnswer !== key;
                         return (
                           <label
                             key={key}
-                            className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:bg-white ${
-                              selected ? "border-emerald-500 bg-emerald-50 shadow-sm" : "border-slate-200 bg-white"
-                            }`}
+                            className={`flex items-start gap-3 rounded-2xl border p-4 transition ${
+                              isCorrectOption
+                                ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                                : isSelectedWrong
+                                  ? "border-rose-300 bg-rose-50 shadow-sm"
+                                  : selected
+                                    ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                                    : "border-slate-200 bg-white"
+                            } ${score !== null ? "cursor-default opacity-90" : "cursor-pointer hover:-translate-y-0.5 hover:bg-white"}`}
                           >
                             <input
                               type="radio"
                               name={`answer-${currentQuestion}`}
                               value={key}
                               checked={selected}
+                              disabled={score !== null}
                               onChange={(event) =>
                                 setLearnerAnswers((previous) => ({
                                   ...previous,
@@ -780,6 +903,8 @@ export const BacaanKuisModule = () => {
                             <span>
                               <span className="font-black text-slate-900">{key}.</span>{" "}
                               <span className="text-slate-700">{activeQuestion[`option${key}`]}</span>
+                              {isCorrectOption && <span className="ml-2 text-xs font-black uppercase text-emerald-700">Jawaban benar</span>}
+                              {isSelectedWrong && <span className="ml-2 text-xs font-black uppercase text-rose-700">Pilihanmu</span>}
                             </span>
                           </label>
                         );
@@ -796,7 +921,7 @@ export const BacaanKuisModule = () => {
                       type="button"
                       className={secondary}
                       onClick={() => setCurrentQuestion((value) => Math.max(0, value - 1))}
-                      disabled={score !== null || !learnerQuestions.length || currentQuestion === 0}
+                      disabled={!learnerQuestions.length || currentQuestion === 0}
                     >
                       Sebelumnya
                     </button>
@@ -804,7 +929,7 @@ export const BacaanKuisModule = () => {
                       type="button"
                       className={secondary}
                       onClick={() => setCurrentQuestion((value) => Math.min(learnerQuestions.length - 1, value + 1))}
-                      disabled={score !== null || !learnerQuestions.length || currentQuestion >= learnerQuestions.length - 1}
+                      disabled={!learnerQuestions.length || currentQuestion >= learnerQuestions.length - 1}
                     >
                       Berikutnya
                     </button>
@@ -860,7 +985,7 @@ export const BacaanKuisModule = () => {
           )}
 
           {activeView === "forum" && (
-            <ForumView studentId={studentId} apiBase={API_BASE_URL} />
+            <DiskusiForumModule />
           )}
 
           {activeView === "admin" && (
@@ -1003,7 +1128,15 @@ const ForumView = ({ studentId, apiBase }: { studentId: string; apiBase: string 
     const res = await fetch(`${base}${path}`, { ...options, headers });
     if (!res.ok) {
       let msg = `HTTP ${res.status}`;
-      try { const p = await res.json(); if (p.message) msg = p.message; } catch { msg = (await res.text()) || msg; }
+      const bodyText = await res.text();
+      if (bodyText) {
+        try {
+          const payload = JSON.parse(bodyText) as { message?: string };
+          msg = payload.message ?? bodyText;
+        } catch {
+          msg = bodyText;
+        }
+      }
       throw new Error(msg);
     }
     if (res.status === 204) return null as T;
@@ -1276,6 +1409,13 @@ const StatCard = ({ label, value, tone }: { label: string; value: number | strin
     </div>
   );
 };
+
+const MiniMetric = ({ label, value }: { label: string; value: number | string }) => (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+    <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+    <p className="mt-1 text-base font-black text-slate-950">{value}</p>
+  </div>
+);
 
 const EmptyState = ({ title, description }: { title: string; description: string }) => (
   <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
