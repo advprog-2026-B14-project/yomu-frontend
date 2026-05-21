@@ -43,14 +43,14 @@ export default function ProfilePage() {
         return;
       }
       
-      const id = params?.id;
-      if (currentUser && currentUser.id === id) {
+      const username = params?.username as string;
+      if (currentUser && currentUser.username === username) {
         setIsOwner(true);
       }
 
       try {
-        if (!id) return;
-        const res = await fetch(`/api/user/${id}`, {
+        if (!username) return;
+        const res = await fetch(`/api/user/username/${username}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -73,7 +73,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [params?.id, router]);
+  }, [params?.username, router]);
 
   const handleEditProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +83,7 @@ export default function ProfilePage() {
     
     try {
       const token = getToken();
-      const res = await fetch(`/api/user/profile/${params?.id}`, {
+      const res = await fetch(`/api/user/profile/${profile?.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -102,7 +102,7 @@ export default function ProfilePage() {
       
       // Update local storage user if owner
       const currentUser = getUser();
-      if (currentUser && currentUser.id === params?.id) {
+      if (currentUser && currentUser.id === profile?.id) {
         currentUser.fullName = updatedProfile.fullName;
         currentUser.username = updatedProfile.username;
         localStorage.setItem("user", JSON.stringify(currentUser));

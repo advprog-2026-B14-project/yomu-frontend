@@ -42,7 +42,7 @@ export default function Home() {
       {user && (
         <div className="flex gap-4">
           <Link 
-            href={`/profile/${user.id}`}
+            href={`/profile/${user.username}`}
             className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors shadow-md text-center"
           >
             Lihat Profil
