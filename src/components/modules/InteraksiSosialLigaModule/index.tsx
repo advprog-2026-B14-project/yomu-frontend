@@ -527,6 +527,23 @@ export const InteraksiSosialLigaModule = () => {
 };
 
 // ─── TIER SECTION ──────────────────────────────────────────────────────────────
+// Simple stat card used in Clan dashboard
+const StatCard = ({ label, value, tone }: { label: string; value: string; tone: "emerald" | "amber" | "purple" }) => {
+    const colors: Record<string, string> = {
+        emerald: "#059669",
+        amber: "#d97706",
+        purple: "#7c3aed",
+    };
+    const color = colors[tone];
+    return (
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16 }}>
+            <div style={{ width: 32, height: 4, borderRadius: 2, background: color, marginBottom: 10 }} />
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{value}</div>
+        </div>
+    );
+};
+
 const TierSection = ({ tierName, clans, cfg, myClanId, onJoin, isLoading }: {
     tierName: string; clans: Clan[]; cfg: ReturnType<typeof getTierConfig>; myClanId?: string; onJoin: (id: string, name: string) => void; isLoading: boolean;
 }) => (
