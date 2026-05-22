@@ -215,17 +215,34 @@ export const InteraksiSosialLigaModule = () => {
     useEffect(() => {
         fetchLeaderboard();
         try {
-            const cookies = document.cookie.split(";");
-            const userCookie = cookies.find(c => c.trim().startsWith("user="));
-            if (userCookie) {
-                const userData = JSON.parse(decodeURIComponent(userCookie.split("=")[1]));
-                if (userData?.id) {
-                    setStudentId(userData.id);
-                    setStudentName(userData.username || userData.fullName || "Learner");
-                    fetchMyClan(userData.id);
+            let userData = null;
+
+            const localUser = localStorage.getItem("user") || localStorage.getItem("userData");
+            if (localUser) {
+                userData = JSON.parse(localUser);
+            }
+
+            if (!userData) {
+                const cookies = document.cookie.split(";");
+                const userCookie = cookies.find(c => c.trim().startsWith("user="));
+                if (userCookie) {
+                    // Pake decodeURIComponent buat jaga-jaga formatnya aneh
+                    const cookieValue = userCookie.split("=")[1];
+                    userData = JSON.parse(decodeURIComponent(cookieValue));
                 }
             }
-        } catch {}
+
+            if (userData && userData.id) {
+                setStudentId(userData.id);
+                setStudentName(userData.username || userData.fullName || "Learner");
+
+                fetchMyClan(userData.id);
+            } else {
+                console.warn("⚠️ Data user ga ketemu! Cookie atau localStorage kosong. Harap login ulang.");
+            }
+        } catch (e) {
+            console.error("Error pas baca data login:", e);
+        }
     }, []);
 
     const handleCreateClan = async (e: FormEvent) => {
