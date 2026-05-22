@@ -500,10 +500,12 @@ export const InteraksiSosialLigaModule = () => {
                                                         display: "flex", alignItems: "center", justifyContent: "center",
                                                         fontSize: 16, fontWeight: 800, color: "#475569"
                                                     }}>
-                                                        {member.name ? member.name.charAt(0).toUpperCase() : "?"}
+                                                        {(member.name || (member as any).username || (member as any).nama || "?").charAt(0).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>{member.name}</div>
+                                                        <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
+                                                            {member.name || (member as any).username || (member as any).nama || `User-${member.userId.substring(0, 4)}`}
+                                                        </div>
                                                         <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4, color: member.role === "Ketua" ? "#d97706" : "#64748b" }}>
                                                             {member.role === "Ketua" ? "👑 Ketua Klan" : "👤 Anggota"}
                                                         </div>
