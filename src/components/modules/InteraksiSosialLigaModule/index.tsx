@@ -244,6 +244,31 @@ export const InteraksiSosialLigaModule = () => {
         }
     }, []);
 
+    const handleCreateClan = async (e: FormEvent) => {
+        e.preventDefault();
+        if (!studentId) return showToast("Sesi login tidak ditemukan.", "error");
+        if (!newClanName.trim()) return showToast("Nama Klan wajib diisi!", "error");
+        setIsLoading(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/liga/clan/create`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nama: newClanName, ketuaId: studentId }),
+            });
+            if (!res.ok) throw new Error("Gagal membuat klan");
+
+            showToast("Klan berhasil dibuat!", "success");
+            await fetchMyClan(studentId);
+            setActiveView("clan");
+            setNewClanName("");
+            fetchLeaderboard();
+        } catch (e) {
+            showToast(e instanceof Error ? e.message : "Terjadi kesalahan", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleJoinClan = async (e: FormEvent) => {
         e.preventDefault();
         if (!studentId) return showToast("Sesi login tidak ditemukan.", "error");
