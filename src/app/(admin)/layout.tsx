@@ -60,49 +60,86 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
 
     return (
-        <div className="flex min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)]">
-            {/* Sidebar */}
-            <aside className="w-64 bg-white/80 backdrop-blur-xl border-r border-emerald-100 flex flex-col fixed inset-y-0 z-20 shadow-[4px_0_24px_rgba(15,23,42,0.02)]">
-                <div className="p-6 border-b border-emerald-50">
-                    <h2 className="text-2xl font-black text-emerald-800 tracking-tight flex items-center gap-2">
-                        <span className="bg-emerald-100 text-emerald-700 p-2 rounded-xl text-lg">⚙️</span>
-                        Yomu Admin
-                    </h2>
+        <div className="flex flex-col min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)]">
+            {/* Top Navbar */}
+            <header className="sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/80 backdrop-blur-md shadow-sm">
+                <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center gap-8">
+                        <Link href="/admin" className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-700 text-lg font-black text-white">
+                                ⚙️
+                            </div>
+                            <span className="text-xl font-black tracking-tight text-emerald-900 hidden sm:inline-block">
+                                Admin
+                            </span>
+                        </Link>
+                        <nav className="hidden md:flex items-center gap-6">
+                            {navItems.map((item) => {
+                                const isActive = item.exact 
+                                    ? pathname === item.path 
+                                    : pathname?.startsWith(item.path);
+                                return (
+                                    <Link
+                                        key={item.path}
+                                        href={item.path}
+                                        className={`flex items-center gap-1.5 text-sm font-bold transition-colors ${
+                                            isActive
+                                                ? "text-emerald-700"
+                                                : "text-slate-500 hover:text-emerald-600"
+                                        }`}
+                                    >
+                                        <span className="text-base">{item.icon}</span>
+                                        {item.name}
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <Link
+                            href="/"
+                            className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition hidden sm:inline-block"
+                        >
+                            Ke Mode User
+                        </Link>
+                        <button
+                            onClick={handleLogout}
+                            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600 transition hover:bg-rose-100"
+                        >
+                            Logout
+                        </button>
+                    </div>
                 </div>
-                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                    {navItems.map((item) => {
-                        const isActive = item.exact 
-                            ? pathname === item.path 
-                            : pathname?.startsWith(item.path);
-                            
-                        return (
-                            <Link
-                                key={item.path}
-                                href={item.path}
-                                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-                                    isActive
-                                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 translate-x-1"
-                                        : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
-                                }`}
-                            >
-                                <span className="text-xl">{item.icon}</span>
-                                {item.name}
-                            </Link>
-                        );
-                    })}
-                </nav>
-                <div className="p-4 border-t border-emerald-50">
-                    <button
-                        onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors border border-transparent hover:border-rose-100"
-                    >
-                        🚪 Logout
-                    </button>
+                
+                {/* Mobile Navigation Scrollable */}
+                <div className="md:hidden border-t border-emerald-50 bg-white/95 px-4 py-2 overflow-x-auto">
+                    <nav className="flex items-center gap-4 min-w-max">
+                        {navItems.map((item) => {
+                            const isActive = item.exact 
+                                ? pathname === item.path 
+                                : pathname?.startsWith(item.path);
+                            return (
+                                <Link
+                                    key={item.path}
+                                    href={item.path}
+                                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
+                                        isActive
+                                            ? "bg-emerald-50 text-emerald-700"
+                                            : "text-slate-500 hover:bg-slate-50 hover:text-emerald-600"
+                                    }`}
+                                >
+                                    <span>{item.icon}</span>
+                                    {item.name}
+                                </Link>
+                            );
+                        })}
+                    </nav>
                 </div>
-            </aside>
+            </header>
 
             {/* Main Content */}
-            <main className="flex-1 ml-64 min-h-screen flex flex-col">
+            <main className="flex-1 flex flex-col pt-6">
                 {children}
             </main>
         </div>
