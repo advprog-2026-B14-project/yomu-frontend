@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getToken, getUser } from "@/lib/auth";
 import Link from "next/link";
+import { getUserProfile } from "@/services/achievementService";
+import type { UserProfileResponse } from "@/types/achievement";
 
 interface UserProfile {
   id: string;
@@ -25,6 +27,7 @@ export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [gamificationProfile, setGamificationProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -76,6 +79,13 @@ export default function ProfilePage() {
         const data = await res.json();
         setProfile(data);
         setEditFormData({ fullName: data.fullName, username: data.username });
+
+        try {
+          const gamificationData = await getUserProfile(data.id);
+          setGamificationProfile(gamificationData);
+        } catch (err) {
+          console.error("Gagal mengambil data gamifikasi:", err);
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -280,19 +290,27 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Achievement Placeholders */}
+          {/* Achievement Pinned */}
           <div className={panel}>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 mb-4">Pencapaian (Segera Hadir)</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 mb-4">Pencapaian Pilihan</h3>
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-4 p-3 rounded-xl border border-slate-200 bg-slate-50/50">
-                  <div className="w-12 h-12 rounded-full bg-slate-200 animate-pulse"></div>
-                  <div className="space-y-2 flex-1">
-                    <div className="h-4 w-24 bg-slate-200 rounded animate-pulse"></div>
-                    <div className="h-3 w-full bg-slate-100 rounded animate-pulse"></div>
+              {gamificationProfile?.pinnedAchievements && gamificationProfile.pinnedAchievements.length > 0 ? (
+                gamificationProfile.pinnedAchievements.map((ach) => (
+                  <div key={ach.id} className="flex items-center gap-4 p-3 rounded-xl border border-emerald-100 bg-emerald-50/30">
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-xl shadow-sm border border-emerald-200">
+                      🏆
+                    </div>
+                    <div className="space-y-1 flex-1">
+                      <div className="text-sm font-bold text-slate-900">{ach.nama}</div>
+                      <div className="text-xs text-slate-600">{ach.deskripsi}</div>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="p-6 text-center rounded-xl border border-slate-200 bg-slate-50">
+                  <p className="text-sm text-slate-500 font-medium">Belum ada pencapaian yang di-pin.</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
