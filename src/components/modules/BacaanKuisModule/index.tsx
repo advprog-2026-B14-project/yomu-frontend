@@ -83,6 +83,16 @@ const danger =
 
 const optionKeys = ["A", "B", "C", "D"] as const;
 const XP_PER_LEVEL = 1000;
+const ACTIVE_READING_STORAGE_KEY = "yomu.bacaanKuis.activeReading";
+const SAVED_READING_STORAGE_KEY = "yomu.bacaanKuis.savedReading";
+const QUIZ_LOCK_STORAGE_KEY = "yomu.bacaanKuis.quizStarted";
+const COMPLETED_READINGS_STORAGE_PREFIX = "yomu.bacaanKuis.completedReadings";
+
+type SavedReadingState = {
+  id: number;
+  title: string;
+  savedAt: string;
+};
 
 const estimateReadingTime = (content: string) => {
   const words = content.trim().split(/\s+/).filter(Boolean).length;
@@ -121,6 +131,7 @@ export const BacaanKuisModule = () => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [completedReadingIds, setCompletedReadingIds] = useState<Set<number>>(() => new Set());
   const reportedReadingProgressIds = useRef(new Set<number>());
   const reportedQuizProgressIds = useRef(new Set<number>());
 
@@ -251,6 +262,12 @@ export const BacaanKuisModule = () => {
     setReadings(readingData);
     setQuizzes(quizData);
     setLastError(null);
+
+    const savedReading = readSavedReading();
+    const user = getUser();
+    if (savedReading && user?.id && readingData.some((reading) => reading.id === savedReading.id)) {
+      await loadReadingById(savedReading.id, user.id, { restoreOnly: true });
+    }
   };
 
   useEffect(() => {
@@ -258,10 +275,33 @@ export const BacaanKuisModule = () => {
     setSessionUser(user);
     setStudentId(user?.id ?? "");
     if (user?.id) {
+      setCompletedReadingIds(readCompletedReadingIds(user.id));
       void fetchAchievementProfile(user.id);
+      void fetchLeagueStatistics(user.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (activeReadingTitle && selectedReadingId) {
+      const activeReading: SavedReadingState = {
+        id: Number(selectedReadingId),
+        title: activeReadingTitle,
+        savedAt: new Date().toISOString(),
+      };
+      window.localStorage.setItem(ACTIVE_READING_STORAGE_KEY, JSON.stringify(activeReading));
+    } else {
+      window.localStorage.removeItem(ACTIVE_READING_STORAGE_KEY);
+    }
+  }, [activeReadingTitle, selectedReadingId]);
+
+  useEffect(() => {
+    if (quizStarted) {
+      window.localStorage.setItem(QUIZ_LOCK_STORAGE_KEY, "true");
+    } else {
+      window.localStorage.removeItem(QUIZ_LOCK_STORAGE_KEY);
+    }
+  }, [quizStarted]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -289,6 +329,40 @@ export const BacaanKuisModule = () => {
       throw new Error("Pilih bacaan terlebih dahulu.");
     }
     return readingId;
+  };
+
+  const readSavedReading = () => {
+    try {
+      const saved = window.localStorage.getItem(SAVED_READING_STORAGE_KEY);
+      if (!saved) return null;
+      const parsed = JSON.parse(saved) as SavedReadingState;
+      return Number.isFinite(parsed.id) ? parsed : null;
+    } catch {
+      window.localStorage.removeItem(SAVED_READING_STORAGE_KEY);
+      return null;
+    }
+  };
+
+  const getCompletedReadingsStorageKey = (sid: string) => `${COMPLETED_READINGS_STORAGE_PREFIX}.${sid}`;
+
+  const readCompletedReadingIds = (sid: string) => {
+    try {
+      const saved = window.localStorage.getItem(getCompletedReadingsStorageKey(sid));
+      const parsed = saved ? (JSON.parse(saved) as number[]) : [];
+      return new Set(parsed.filter((id) => Number.isFinite(id)));
+    } catch {
+      window.localStorage.removeItem(getCompletedReadingsStorageKey(sid));
+      return new Set<number>();
+    }
+  };
+
+  const markReadingCompleted = (sid: string, readingId: number) => {
+    setCompletedReadingIds((previous) => {
+      const next = new Set(previous);
+      next.add(readingId);
+      window.localStorage.setItem(getCompletedReadingsStorageKey(sid), JSON.stringify([...next]));
+      return next;
+    });
   };
 
   const resetLearnerFlow = () => {
@@ -381,13 +455,12 @@ export const BacaanKuisModule = () => {
     }
   };
 
-  const loadLearnerReading = async () => {
-    const sid = requireStudentId();
-    const readingId = getSelectedReadingNumber();
+  const loadReadingById = async (readingId: number, sid: string, options: { restoreOnly?: boolean } = {}) => {
     const reading = await api<LearnerReadingResponse>(`/api/learner/readings/${readingId}`, {
       headers: { "X-Student-Id": sid },
     });
 
+    setSelectedReadingId(String(readingId));
     setReadingView(reading);
     setQuizStarted(false);
     setLearnerQuestions([]);
@@ -397,14 +470,20 @@ export const BacaanKuisModule = () => {
     setScore(null);
     setActiveView("learn");
     await fetchLeagueStatistics(sid);
-    if (!reportedReadingProgressIds.current.has(readingId)) {
+    if (!options.restoreOnly && !reportedReadingProgressIds.current.has(readingId)) {
       const synced = await syncAchievementProgress(sid, "BACA");
       if (synced) {
         reportedReadingProgressIds.current.add(readingId);
       }
     }
     await fetchAchievementProfile(sid);
-    showToast("Bacaan berhasil dimuat");
+    showToast(options.restoreOnly ? "Bacaan terakhir dibuka kembali" : "Bacaan berhasil dimuat");
+  };
+
+  const loadLearnerReading = async () => {
+    const sid = requireStudentId();
+    const readingId = getSelectedReadingNumber();
+    await loadReadingById(readingId, sid);
   };
 
   const ensureQuizAttemptStarted = async () => {
@@ -485,6 +564,7 @@ export const BacaanKuisModule = () => {
     setReviewCorrectAnswers(result.correctAnswers ?? {});
     setQuizStarted(false);
     setCurrentQuestion(0);
+    markReadingCompleted(sid, readingId);
     await fetchLeagueStatistics(sid);
     if (!reportedQuizProgressIds.current.has(readingId)) {
       const synced = await syncAchievementProgress(sid, "KUIS");
@@ -497,8 +577,8 @@ export const BacaanKuisModule = () => {
   };
 
   const navigateView = (view: "learn" | "quiz" | "forum") => {
-    if (view === "forum" && quizStarted) {
-      showToast("Selesaikan atau submit quiz dulu sebelum membuka forum diskusi.", "error");
+    if (quizStarted && view !== "quiz") {
+      showToast("Selesaikan atau submit quiz dulu sebelum membuka menu lain.", "error");
       return;
     }
 
@@ -521,14 +601,14 @@ export const BacaanKuisModule = () => {
 
           <nav className="space-y-2">
             {navigationItems.map(({ view, label, badge }) => {
-              const disabled = view === "forum" && quizStarted;
+              const disabled = quizStarted && view !== "quiz";
               return (
               <button
                 key={view}
                 type="button"
                 onClick={() => navigateView(view)}
                 disabled={disabled}
-                title={disabled ? "Forum bisa dibuka setelah quiz selesai." : undefined}
+                title={disabled ? "Menu lain bisa dibuka setelah quiz selesai." : undefined}
                 className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
                   activeView === view
                     ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10"
@@ -667,14 +747,14 @@ export const BacaanKuisModule = () => {
 
           <div className="mb-4 grid gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden md:grid-cols-4">
             {navigationItems.map(({ view, label }) => {
-              const disabled = view === "forum" && quizStarted;
+              const disabled = quizStarted && view !== "quiz";
               return (
               <button
                 key={view}
                 type="button"
                 onClick={() => navigateView(view)}
                 disabled={disabled}
-                title={disabled ? "Forum bisa dibuka setelah quiz selesai." : undefined}
+                title={disabled ? "Menu lain bisa dibuka setelah quiz selesai." : undefined}
                 className={`rounded-xl px-3 py-2 text-sm font-bold ${
                   activeView === view
                     ? "bg-white text-emerald-700 shadow-sm"
@@ -713,6 +793,7 @@ export const BacaanKuisModule = () => {
                           category={categoryMap.get(reading.categoryId) ?? "Tanpa kategori"}
                           quizCount={quizCount}
                           selected={selectedReadingId === String(reading.id)}
+                          completed={completedReadingIds.has(reading.id)}
                           onSelect={() => {
                             setSelectedReadingId(String(reading.id));
                             resetLearnerFlow();
@@ -863,7 +944,7 @@ export const BacaanKuisModule = () => {
                     </div>
                     <div className="mt-4 grid gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:grid-cols-3">
                       <MiniMetric label="League Accuracy" value={`${leagueStats.accuracy}%`} />
-                      <MiniMetric label="Correct Answer" value={`${leagueStats.correctAnswers}/${learnerQuestions.length}`} />
+                      <MiniMetric label="Correct Answer" value={`${correctAnswerCount}/${learnerQuestions.length}`} />
                       <MiniMetric label="Frequency" value={leagueStats.frequency} />
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
@@ -1368,6 +1449,7 @@ const ReadingPathCard = ({
   category,
   quizCount,
   selected,
+  completed,
   onSelect,
 }: {
   reading: Reading;
@@ -1375,6 +1457,7 @@ const ReadingPathCard = ({
   category: string;
   quizCount: number;
   selected: boolean;
+  completed: boolean;
   onSelect: () => void;
 }) => {
   const icon = READING_ICONS[index % READING_ICONS.length];
@@ -1388,12 +1471,18 @@ const ReadingPathCard = ({
       className={`group w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 ${
         selected
           ? "border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100"
-          : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
+          : completed
+            ? "border-lime-300 bg-lime-100 shadow-sm shadow-lime-100 hover:border-lime-400 hover:bg-lime-100"
+            : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${selected ? "bg-emerald-100" : "bg-slate-100"}`}>
+          <span
+            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${
+              selected ? "bg-emerald-100" : completed ? "bg-lime-200" : "bg-slate-100"
+            }`}
+          >
             {icon}
           </span>
           <div className="min-w-0">
@@ -1406,10 +1495,10 @@ const ReadingPathCard = ({
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-            selected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-500"
+            selected ? "bg-emerald-600 text-white" : completed ? "bg-lime-600 text-white" : "bg-slate-100 text-slate-500"
           }`}
         >
-          {selected ? "Dipilih" : `#${index + 1}`}
+          {selected ? "Dipilih" : completed ? "Selesai" : `#${index + 1}`}
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1417,7 +1506,11 @@ const ReadingPathCard = ({
           <span
             key={chip}
             className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-              selected ? "border-emerald-200 bg-white text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"
+              selected
+                ? "border-emerald-200 bg-white text-emerald-700"
+                : completed
+                  ? "border-lime-300 bg-white/80 text-lime-800"
+                  : "border-slate-200 bg-slate-50 text-slate-500"
             }`}
           >
             {chip}
