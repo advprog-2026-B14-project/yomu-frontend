@@ -133,7 +133,14 @@ export const BacaanKuisModule = () => {
     const readingId = Number(selectedReadingId);
     return readings.find((reading) => reading.id === readingId) ?? null;
   }, [readings, selectedReadingId]);
+  const hasSelectedReading = Boolean(selectedReadingId);
   const sessionLabel = sessionUser?.username || sessionUser?.fullName || sessionUser?.email || "Learner";
+  const activeReadingTitle = readingView?.title ?? selectedReading?.title ?? null;
+  const navigationItems = [
+    { view: "learn", label: "Bacaan", badge: "Read" },
+    { view: "quiz", label: "Quiz", badge: "Test" },
+    { view: "forum", label: "Forum Diskusi", badge: "Forum" },
+  ] as const;
 
   const answeredCount = useMemo(() => Object.values(learnerAnswers).filter(Boolean).length, [learnerAnswers]);
   const quizProgress = learnerQuestions.length ? Math.round((answeredCount / learnerQuestions.length) * 100) : 0;
@@ -490,6 +497,11 @@ export const BacaanKuisModule = () => {
   };
 
   const navigateView = (view: "learn" | "quiz" | "forum") => {
+    if (view === "forum" && quizStarted) {
+      showToast("Selesaikan atau submit quiz dulu sebelum membuka forum diskusi.", "error");
+      return;
+    }
+
     setActiveView(view);
   };
 
@@ -508,29 +520,38 @@ export const BacaanKuisModule = () => {
           </div>
 
           <nav className="space-y-2">
-            {[
-              ["learn", "Bacaan", "Read"],
-              ["quiz", "Quiz", "Test"],
-              ["forum", "Forum Diskusi", "Forum"],
-            ].map(([view, label, badge]) => (
+            {navigationItems.map(({ view, label, badge }) => {
+              const disabled = view === "forum" && quizStarted;
+              return (
               <button
                 key={view}
                 type="button"
-                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view)}
+                disabled={disabled}
+                title={disabled ? "Forum bisa dibuka setelah quiz selesai." : undefined}
                 className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
-                  activeView === view ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10" : "text-slate-600 hover:bg-slate-100"
+                  activeView === view
+                    ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10"
+                    : disabled
+                      ? "cursor-not-allowed text-slate-300"
+                      : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 <span>{label}</span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] ${
-                    activeView === view ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-white"
+                    activeView === view
+                      ? "bg-white/20 text-white"
+                      : disabled
+                        ? "bg-slate-100 text-slate-300"
+                        : "bg-slate-100 text-slate-500 group-hover:bg-white"
                   }`}
                 >
-                  {badge}
+                  {disabled ? "Locked" : badge}
                 </span>
               </button>
-            ))}
+            );
+            })}
           </nav>
 
           <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white">
@@ -563,6 +584,27 @@ export const BacaanKuisModule = () => {
             <div>
               <p className="text-sm font-bold text-emerald-700">Selamat belajar, {sessionLabel}</p>
               <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Bacaan dan Kuis</h1>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {activeReadingTitle ? (
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                    Bacaan aktif: {activeReadingTitle}
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500">
+                    Belum ada bacaan aktif
+                  </span>
+                )}
+                {activeView === "forum" && activeReadingTitle && (
+                  <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">
+                    Forum untuk bacaan ini
+                  </span>
+                )}
+                {quizStarted && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                    Quiz sedang berlangsung
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <button
@@ -618,28 +660,33 @@ export const BacaanKuisModule = () => {
             <div className={`${subtlePanel} p-4`}>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">League Payload</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                {leagueStats.status}. Data yang disiapkan: studentId, readingId, akurasi, jumlah jawaban benar, dan frekuensi sesi.
+                Statistik ini dipakai Liga untuk menghitung akurasi dan aktivitas belajar. Status: {leagueStats.status}.
               </p>
             </div>
           </section>
 
           <div className="mb-4 grid gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden md:grid-cols-4">
-            {[
-              ["learn", "Bacaan"],
-              ["quiz", "Quiz"],
-              ["forum", "Forum"],
-            ].map(([view, label]) => (
+            {navigationItems.map(({ view, label }) => {
+              const disabled = view === "forum" && quizStarted;
+              return (
               <button
                 key={view}
                 type="button"
-                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view)}
+                disabled={disabled}
+                title={disabled ? "Forum bisa dibuka setelah quiz selesai." : undefined}
                 className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                  activeView === view ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600"
+                  activeView === view
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : disabled
+                      ? "cursor-not-allowed text-slate-300"
+                      : "text-slate-600"
                 }`}
               >
                 {label}
               </button>
-            ))}
+            );
+            })}
           </div>
 
           {activeView === "learn" && (
@@ -684,10 +731,22 @@ export const BacaanKuisModule = () => {
                     {loadingAction === "load-reading" ? "Membuka..." : "Lanjutkan Belajar"}
                   </button>
                   <div className="mt-2 grid grid-cols-2 gap-2">
-                    <button type="button" className={secondary} onClick={() => withLoading("start-quiz", startQuiz)} disabled={!!loadingAction}>
+                    <button
+                      type="button"
+                      className={secondary}
+                      onClick={() => withLoading("start-quiz", startQuiz)}
+                      disabled={!!loadingAction || !hasSelectedReading}
+                      title={!hasSelectedReading ? "Pilih bacaan dulu sebelum mulai quiz." : undefined}
+                    >
                       {loadingAction === "start-quiz" ? "Memulai..." : "Mulai Quiz"}
                     </button>
-                    <button type="button" className={secondary} onClick={() => withLoading("load-questions", loadQuestions)} disabled={!!loadingAction}>
+                    <button
+                      type="button"
+                      className={secondary}
+                      onClick={() => withLoading("load-questions", loadQuestions)}
+                      disabled={!!loadingAction || !hasSelectedReading}
+                      title={!hasSelectedReading ? "Pilih bacaan dulu sebelum memuat soal." : undefined}
+                    >
                       {loadingAction === "load-questions" ? "Memuat..." : "Muat Soal Quiz"}
                     </button>
                   </div>
@@ -773,6 +832,12 @@ export const BacaanKuisModule = () => {
                   </div>
                   <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Achievement Sync</span>
                 </div>
+
+                {quizStarted && (
+                  <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                    Quiz sedang berlangsung. Forum dan bacaan dikunci sementara.
+                  </div>
+                )}
 
                 <div className="mb-6 h-3 rounded-full bg-slate-100">
                   <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${quizProgress}%` }} />

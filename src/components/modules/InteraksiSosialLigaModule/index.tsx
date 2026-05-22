@@ -2,7 +2,8 @@
 
 import { useState, useEffect, FormEvent } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "http://localhost:8084";
+const API_BASE_URL =
+    process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "https://yomu-interaksi-sosial-liga-production.up.railway.app";
 
 // --- TYPESCRIPT DEFINITIONS ---
 type ClanMember = {
