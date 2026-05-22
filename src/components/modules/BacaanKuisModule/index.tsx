@@ -58,21 +58,7 @@ type LeagueStatisticsResponse = {
   accuracyPercentage: number;
 };
 
-type ReadingForm = {
-  title: string;
-  content: string;
-  categoryId: string;
-};
 
-type QuizForm = {
-  readingId: string;
-  question: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctAnswer: string;
-};
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/backend";
 
@@ -101,7 +87,7 @@ const toForumReadingId = (readingId: number) => {
 };
 
 export const BacaanKuisModule = () => {
-  const [activeView, setActiveView] = useState<"learn" | "quiz" | "admin" | "forum">("learn");
+  const [activeView, setActiveView] = useState<"learn" | "quiz" | "forum">("learn");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -125,26 +111,7 @@ export const BacaanKuisModule = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
-  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
-  const [categoryName, setCategoryName] = useState("");
 
-  const [editingReadingId, setEditingReadingId] = useState<number | null>(null);
-  const [readingForm, setReadingForm] = useState<ReadingForm>({
-    title: "",
-    content: "",
-    categoryId: "",
-  });
-
-  const [editingQuizId, setEditingQuizId] = useState<number | null>(null);
-  const [quizForm, setQuizForm] = useState<QuizForm>({
-    readingId: "",
-    question: "",
-    optionA: "",
-    optionB: "",
-    optionC: "",
-    optionD: "",
-    correctAnswer: "",
-  });
 
   const readingMap = useMemo(() => new Map(readings.map((reading) => [reading.id, reading.title])), [readings]);
   const categoryMap = useMemo(() => new Map(categories.map((category) => [category.id, category.name])), [categories]);
@@ -430,115 +397,7 @@ export const BacaanKuisModule = () => {
     showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };
 
-  const saveCategory = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!categoryName.trim()) {
-      showToast("Nama kategori wajib diisi", "error");
-      return;
-    }
 
-    if (editingCategoryId) {
-      await api(`/api/admin/categories/${editingCategoryId}`, {
-        method: "PUT",
-        body: JSON.stringify({ name: categoryName.trim() }),
-      });
-      showToast("Kategori diperbarui");
-    } else {
-      await api("/api/admin/categories", {
-        method: "POST",
-        body: JSON.stringify({ name: categoryName.trim() }),
-      });
-      showToast("Kategori dibuat");
-    }
-
-    setCategoryName("");
-    setEditingCategoryId(null);
-    await bootstrapData();
-  };
-
-  const saveReading = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const payload = {
-      title: readingForm.title.trim(),
-      content: readingForm.content.trim(),
-      categoryId: Number(readingForm.categoryId),
-    };
-
-    if (!payload.title || !payload.content || Number.isNaN(payload.categoryId)) {
-      showToast("Lengkapi form bacaan", "error");
-      return;
-    }
-
-    if (editingReadingId) {
-      await api(`/api/admin/readings/${editingReadingId}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-      showToast("Bacaan diperbarui");
-    } else {
-      await api("/api/admin/readings", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      showToast("Bacaan dibuat");
-    }
-
-    setEditingReadingId(null);
-    setReadingForm({ title: "", content: "", categoryId: "" });
-    await bootstrapData();
-  };
-
-  const saveQuiz = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const payload = {
-      readingId: Number(quizForm.readingId),
-      question: quizForm.question.trim(),
-      optionA: quizForm.optionA.trim(),
-      optionB: quizForm.optionB.trim(),
-      optionC: quizForm.optionC.trim(),
-      optionD: quizForm.optionD.trim(),
-      correctAnswer: quizForm.correctAnswer.trim().toUpperCase(),
-    };
-
-    if (
-      Number.isNaN(payload.readingId) ||
-      !payload.question ||
-      !payload.optionA ||
-      !payload.optionB ||
-      !payload.optionC ||
-      !payload.optionD ||
-      !payload.correctAnswer
-    ) {
-      showToast("Lengkapi form kuis", "error");
-      return;
-    }
-
-    if (editingQuizId) {
-      await api(`/api/admin/quizzes/${editingQuizId}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-      showToast("Kuis diperbarui");
-    } else {
-      await api("/api/admin/quizzes", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      showToast("Kuis dibuat");
-    }
-
-    setEditingQuizId(null);
-    setQuizForm({
-      readingId: "",
-      question: "",
-      optionA: "",
-      optionB: "",
-      optionC: "",
-      optionD: "",
-      correctAnswer: "",
-    });
-    await bootstrapData();
-  };
 
   return (
     <div className={shell}>
@@ -557,12 +416,11 @@ export const BacaanKuisModule = () => {
               ["learn", "Bacaan", "Read"],
               ["quiz", "Quiz", "Test"],
               ["forum", "Forum Diskusi", "Forum"],
-              ["admin", "Admin Studio", "CMS"],
             ].map(([view, label, badge]) => (
               <button
                 key={view}
                 type="button"
-                onClick={() => setActiveView(view as "learn" | "quiz" | "admin" | "forum")}
+                onClick={() => setActiveView(view as "learn" | "quiz" | "forum")}
                 className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
                   activeView === view ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10" : "text-slate-600 hover:bg-slate-100"
                 }`}
@@ -665,12 +523,11 @@ export const BacaanKuisModule = () => {
               ["learn", "Bacaan"],
               ["quiz", "Quiz"],
               ["forum", "Forum"],
-              ["admin", "Admin"],
             ].map(([view, label]) => (
               <button
                 key={view}
                 type="button"
-                onClick={() => setActiveView(view as "learn" | "quiz" | "admin" | "forum")}
+                onClick={() => setActiveView(view as "learn" | "quiz" | "forum")}
                 className={`rounded-xl px-3 py-2 text-sm font-bold ${
                   activeView === view ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600"
                 }`}
@@ -996,100 +853,7 @@ export const BacaanKuisModule = () => {
             />
           )}
 
-          {activeView === "admin" && (
-            <section className="grid gap-4 xl:grid-cols-3 xl:items-start">
-              <AdminCategoryPanel
-                categories={categories}
-                categoryName={categoryName}
-                editingCategoryId={editingCategoryId}
-                setCategoryName={setCategoryName}
-                reset={() => {
-                  setEditingCategoryId(null);
-                  setCategoryName("");
-                }}
-                save={(event) => withLoading("save-category", async () => saveCategory(event))}
-                edit={(category) => {
-                  setEditingCategoryId(category.id);
-                  setCategoryName(category.name);
-                }}
-                remove={(category) =>
-                  withLoading("delete-category", async () => {
-                    await api(`/api/admin/categories/${category.id}`, { method: "DELETE" });
-                    showToast("Kategori dihapus");
-                    await bootstrapData();
-                  })
-                }
-              />
 
-              <AdminReadingPanel
-                readings={readings}
-                categories={categories}
-                categoryMap={categoryMap}
-                readingForm={readingForm}
-                setReadingForm={setReadingForm}
-                reset={() => {
-                  setEditingReadingId(null);
-                  setReadingForm({ title: "", content: "", categoryId: "" });
-                }}
-                save={(event) => withLoading("save-reading", async () => saveReading(event))}
-                edit={(reading) => {
-                  setEditingReadingId(reading.id);
-                  setReadingForm({
-                    title: reading.title,
-                    content: reading.content,
-                    categoryId: String(reading.categoryId),
-                  });
-                }}
-                remove={(reading) =>
-                  withLoading("delete-reading", async () => {
-                    await api(`/api/admin/readings/${reading.id}`, { method: "DELETE" });
-                    showToast("Bacaan dihapus");
-                    await bootstrapData();
-                  })
-                }
-              />
-
-              <AdminQuizPanel
-                quizzes={quizzes}
-                readings={readings}
-                readingMap={readingMap}
-                quizForm={quizForm}
-                setQuizForm={setQuizForm}
-                reset={() => {
-                  setEditingQuizId(null);
-                  setQuizForm({
-                    readingId: "",
-                    question: "",
-                    optionA: "",
-                    optionB: "",
-                    optionC: "",
-                    optionD: "",
-                    correctAnswer: "",
-                  });
-                }}
-                save={(event) => withLoading("save-quiz", async () => saveQuiz(event))}
-                edit={(quiz) => {
-                  setEditingQuizId(quiz.id);
-                  setQuizForm({
-                    readingId: String(quiz.readingId),
-                    question: quiz.question,
-                    optionA: quiz.optionA,
-                    optionB: quiz.optionB,
-                    optionC: quiz.optionC,
-                    optionD: quiz.optionD,
-                    correctAnswer: quiz.correctAnswer,
-                  });
-                }}
-                remove={(quiz) =>
-                  withLoading("delete-quiz", async () => {
-                    await api(`/api/admin/quizzes/${quiz.id}`, { method: "DELETE" });
-                    showToast("Kuis dihapus");
-                    await bootstrapData();
-                  })
-                }
-              />
-            </section>
-          )}
         </main>
       </div>
 
@@ -1720,240 +1484,7 @@ const renderInline = (text: string): ReactNode[] => {
   return nodes;
 };
 
-type AdminCategoryPanelProps = {
-  categories: Category[];
-  categoryName: string;
-  editingCategoryId: number | null;
-  setCategoryName: (value: string) => void;
-  reset: () => void;
-  save: (event: FormEvent<HTMLFormElement>) => void;
-  edit: (category: Category) => void;
-  remove: (category: Category) => void;
-};
 
-const AdminCategoryPanel = ({
-  categories,
-  categoryName,
-  editingCategoryId,
-  setCategoryName,
-  reset,
-  save,
-  edit,
-  remove,
-}: AdminCategoryPanelProps) => (
-  <article className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
-    <div className="shrink-0 p-5 pb-0">
-      <PanelHeader eyebrow="Content Taxonomy" title="Kategori" />
-      <form onSubmit={save} className="mt-4">
-        <input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} placeholder="Nama kategori" className={input} />
-        <div className="mt-3 flex gap-2">
-          <button type="submit" className={primary}>
-            {editingCategoryId ? "Update" : "Tambah"}
-          </button>
-          <button type="button" className={secondary} onClick={reset}>
-            Reset
-          </button>
-        </div>
-      </form>
-    </div>
-    <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">
-      <div className="space-y-2">
-        {categories.map((category) => (
-          <AdminListItem key={category.id} title={category.name} meta={`ID ${category.id}`} onEdit={() => edit(category)} onDelete={() => remove(category)} />
-        ))}
-        {!categories.length && <EmptyState title="Belum ada kategori" description="Tambahkan kategori untuk mengelompokkan bacaan." />}
-      </div>
-    </div>
-  </article>
-);
-
-type AdminReadingPanelProps = {
-  readings: Reading[];
-  categories: Category[];
-  categoryMap: Map<number, string>;
-  readingForm: ReadingForm;
-  setReadingForm: (updater: (previous: ReadingForm) => ReadingForm) => void;
-  reset: () => void;
-  save: (event: FormEvent<HTMLFormElement>) => void;
-  edit: (reading: Reading) => void;
-  remove: (reading: Reading) => void;
-};
-
-const AdminReadingPanel = ({
-  readings,
-  categories,
-  categoryMap,
-  readingForm,
-  setReadingForm,
-  reset,
-  save,
-  edit,
-  remove,
-}: AdminReadingPanelProps) => (
-  <article className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
-    <div className="shrink-0 p-5 pb-0">
-      <PanelHeader eyebrow="Learning Material" title="Bacaan" />
-      <form onSubmit={save} className="mt-4 space-y-3">
-        <input value={readingForm.title} onChange={(event) => setReadingForm((previous) => ({ ...previous, title: event.target.value }))} placeholder="Judul bacaan" className={input} />
-        <select value={readingForm.categoryId} onChange={(event) => setReadingForm((previous) => ({ ...previous, categoryId: event.target.value }))} className={input}>
-          <option value="">Pilih kategori</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <textarea
-          rows={5}
-          value={readingForm.content}
-          onChange={(event) => setReadingForm((previous) => ({ ...previous, content: event.target.value }))}
-          placeholder="Konten bacaan"
-          className={input}
-        />
-        <div className="flex gap-2">
-          <button type="submit" className={primary}>
-            Simpan
-          </button>
-          <button type="button" className={secondary} onClick={reset}>
-            Reset
-          </button>
-        </div>
-      </form>
-    </div>
-    <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">
-      <div className="space-y-2">
-        {readings.map((reading) => (
-          <AdminListItem
-            key={reading.id}
-            title={reading.title}
-            meta={`${categoryMap.get(reading.categoryId) ?? "-"} · ${estimateReadingTime(reading.content)} menit`}
-            onEdit={() => edit(reading)}
-            onDelete={() => remove(reading)}
-          />
-        ))}
-        {!readings.length && <EmptyState title="Belum ada bacaan" description="Buat materi pertama agar learner bisa mulai belajar." />}
-      </div>
-    </div>
-  </article>
-);
-
-type AdminQuizPanelProps = {
-  quizzes: Quiz[];
-  readings: Reading[];
-  readingMap: Map<number, string>;
-  quizForm: QuizForm;
-  setQuizForm: (updater: (previous: QuizForm) => QuizForm) => void;
-  reset: () => void;
-  save: (event: FormEvent<HTMLFormElement>) => void;
-  edit: (quiz: Quiz) => void;
-  remove: (quiz: Quiz) => void;
-};
-
-const AdminQuizPanel = ({
-  quizzes,
-  readings,
-  readingMap,
-  quizForm,
-  setQuizForm,
-  reset,
-  save,
-  edit,
-  remove,
-}: AdminQuizPanelProps) => (
-  <article className={`${panel} flex flex-col xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]`}>
-    <div className="shrink-0 p-5 pb-0">
-      <PanelHeader eyebrow="Assessment" title="Quiz" />
-      <form onSubmit={save} className="mt-4 space-y-3">
-        <select value={quizForm.readingId} onChange={(event) => setQuizForm((previous) => ({ ...previous, readingId: event.target.value }))} className={input}>
-          <option value="">Pilih bacaan</option>
-          {readings.map((reading) => (
-            <option key={reading.id} value={reading.id}>
-              {reading.title}
-            </option>
-          ))}
-        </select>
-        <textarea
-          rows={3}
-          value={quizForm.question}
-          onChange={(event) => setQuizForm((previous) => ({ ...previous, question: event.target.value }))}
-          placeholder="Pertanyaan"
-          className={input}
-        />
-        {optionKeys.map((key) => (
-          <input
-            key={key}
-            value={quizForm[`option${key}`]}
-            onChange={(event) => setQuizForm((previous) => ({ ...previous, [`option${key}`]: event.target.value }))}
-            placeholder={`Opsi ${key}`}
-            className={input}
-          />
-        ))}
-        <select value={quizForm.correctAnswer} onChange={(event) => setQuizForm((previous) => ({ ...previous, correctAnswer: event.target.value }))} className={input}>
-          <option value="">Jawaban benar</option>
-          {optionKeys.map((key) => (
-            <option key={key} value={key}>
-              {key}
-            </option>
-          ))}
-        </select>
-        <div className="flex gap-2">
-          <button type="submit" className={primary}>
-            Simpan
-          </button>
-          <button type="button" className={secondary} onClick={reset}>
-            Reset
-          </button>
-        </div>
-      </form>
-    </div>
-    <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">
-      <div className="space-y-2">
-        {quizzes.map((quiz) => (
-          <AdminListItem
-            key={quiz.id}
-            title={quiz.question}
-            meta={`${readingMap.get(quiz.readingId) ?? `Reading ${quiz.readingId}`} · Jawaban ${quiz.correctAnswer}`}
-            onEdit={() => edit(quiz)}
-            onDelete={() => remove(quiz)}
-          />
-        ))}
-        {!quizzes.length && <EmptyState title="Belum ada soal" description="Tambahkan pertanyaan untuk bacaan yang sudah tersedia." />}
-      </div>
-    </div>
-  </article>
-);
-
-const PanelHeader = ({ eyebrow, title }: { eyebrow: string; title: string }) => (
-  <div>
-    <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p>
-    <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{title}</h2>
-  </div>
-);
-
-const AdminListItem = ({
-  title,
-  meta,
-  onEdit,
-  onDelete,
-}: {
-  title: string;
-  meta: string;
-  onEdit: () => void;
-  onDelete: () => void;
-}) => (
-  <div className="rounded-2xl border border-slate-200 bg-white p-3">
-    <p className="line-clamp-2 font-black leading-6 text-slate-900">{title}</p>
-    <p className="mt-1 text-xs text-slate-500">{meta}</p>
-    <div className="mt-3 flex gap-2">
-      <button type="button" className={`${secondary} px-3 py-1.5 text-xs`} onClick={onEdit}>
-        Edit
-      </button>
-      <button type="button" className={danger} onClick={onDelete}>
-        Hapus
-      </button>
-    </div>
-  </div>
-);
 
 const READING_ICONS = ["📖", "📝", "🔬", "💡", "🌐", "🎯", "🧠", "📚", "⚡", "🔭"];
 

@@ -36,7 +36,7 @@ function formatDate(s: string) {
 
 const PER_PAGE = 10;
 
-const shell = "min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)] text-slate-900";
+const shell = "w-full text-slate-900";
 const panel = "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur";
 const subtlePanel = "rounded-2xl border border-slate-200 bg-white shadow-sm";
 const inputStyle = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
@@ -185,8 +185,8 @@ export const AdminModule = () => {
     };
 
     return (
-        <div className={`${shell} p-4 md:p-6 lg:p-8`}>
-            <div className="max-w-7xl mx-auto space-y-6">
+        <div className={`${shell} p-6 md:p-10 max-w-7xl mx-auto`}>
+            <div className="space-y-6">
                 {/* Header */}
                 <div className={`${panel} p-6 flex flex-col md:flex-row md:items-center justify-between gap-4`}>
                     <div>
@@ -200,12 +200,6 @@ export const AdminModule = () => {
                             className={secondary}
                         >
                             🔄 Refresh Data
-                        </button>
-                        <button
-                            onClick={handleLogout}
-                            className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-bold text-rose-700 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50"
-                        >
-                            Logout
                         </button>
                     </div>
                 </div>

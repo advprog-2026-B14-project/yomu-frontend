@@ -1,5 +1,5 @@
-import { AdminModule } from "@/components/modules/AdminModule";
+import { AdminOverviewModule } from "@/components/modules/AdminOverviewModule";
 
 export default function AdminPage() {
-  return <AdminModule />;
+  return <AdminOverviewModule />;
 }
