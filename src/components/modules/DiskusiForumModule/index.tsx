@@ -46,7 +46,7 @@ const DEFAULT_READING_TITLE = "Judul Bacaan Default";
 
 const shell = "w-full font-sans";
 const panel =
-  "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur mx-auto w-full max-w-4xl p-6 sm:p-8";
+  "rounded-3xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur mx-auto w-full max-w-6xl p-5 sm:p-6";
 const input =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
 const primary =
@@ -584,19 +584,25 @@ export const DiskusiForumModule = ({
   return (
     <section className={`${shell} ${className}`.trim()}>
       <div className={panel}>
-        <div className="space-y-8">
+        <div className="space-y-6">
           {readingTitle ? (
             <div className="space-y-2 text-center">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
                 Diskusi bacaan
               </p>
-              <h2 className="text-2xl font-black text-slate-950 sm:text-3xl">
+              <h2 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
                 {readingTitle}
               </h2>
+              <p className="mx-auto max-w-2xl text-sm leading-6 text-slate-500">
+                Thread ini mengikuti bacaan yang sedang aktif, jadi konteks
+                diskusi tetap nyambung dengan materi yang dibaca.
+              </p>
             </div>
           ) : null}
 
-          <form onSubmit={handleCreate} className="space-y-4">
+          <form
+            onSubmit={handleCreate}
+            className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
             <textarea
               className={`${input} p-4 bg-transparent`}
               placeholder="Apa pendapatmu mengenai bacaan ini?"
@@ -619,7 +625,7 @@ export const DiskusiForumModule = ({
             </div>
           )}
 
-          <div className="space-y-8">
+          <div className="space-y-6 rounded-3xl border border-slate-100 bg-slate-50/60 p-4 sm:p-5">
             {rootComments.length > 0 ? (
               rootComments.map((comment) => renderComment(comment))
             ) : (
