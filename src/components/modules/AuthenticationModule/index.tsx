@@ -301,7 +301,7 @@ export const RegisterModule = () => {
 
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500">Password</label>
-              <input name="password" type="password" placeholder="Minimal 6 karakter" className={input} onChange={handleChange} required />
+              <input name="password" type="password" placeholder="Minimal 8 karakter" className={input} onChange={handleChange} required />
             </div>
 
             <button type="submit" className={primary}>Daftar Sekarang</button>
