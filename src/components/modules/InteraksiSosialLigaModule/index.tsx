@@ -2,7 +2,6 @@
 
 import { useState, useEffect, FormEvent } from "react";
 
-// Variabel Environment khusus modul kamu biar ga tabrakan sama Hanif
 const API_BASE_URL = process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "http://localhost:8084";
 
 // --- TYPESCRIPT DEFINITIONS ---
@@ -30,7 +29,10 @@ const secondary =
 export const InteraksiSosialLigaModule = () => {
     // --- STATES ---
     const [activeView, setActiveView] = useState<"leaderboard" | "clan">("leaderboard");
+
+    // Otomatisasi Student ID & Nama
     const [studentId, setStudentId] = useState("");
+    const [studentName, setStudentName] = useState("");
 
     // Data States
     const [leaderboard, setLeaderboard] = useState<Clan[]>([]);
@@ -61,7 +63,6 @@ export const InteraksiSosialLigaModule = () => {
             setLeaderboard(data || []);
         } catch (error) {
             console.error("Fetch leaderboard error:", error);
-            // Kosongkan tabel jika gagal atau belum ada data
             setLeaderboard([]);
         } finally {
             setIsLoading(false);
@@ -71,12 +72,38 @@ export const InteraksiSosialLigaModule = () => {
     // Ambil data pas komponen pertama kali dirender
     useEffect(() => {
         fetchLeaderboard();
+
+        // Mengambil Auth Data Nadhif dari Cookie
+        try {
+            const cookies = document.cookie.split(';');
+            const userCookie = cookies.find(c => c.trim().startsWith('user='));
+
+            if (userCookie) {
+                // Decode URL encode dan parse JSON-nya
+                const cookieValue = userCookie.split('=')[1];
+                const userData = JSON.parse(decodeURIComponent(cookieValue));
+
+                if (userData && userData.id) {
+                    setStudentId(userData.id);
+                    // Ambil username atau fullName untuk sapaan di UI
+                    setStudentName(userData.username || userData.fullName || "Learner");
+                }
+            }
+        } catch (error) {
+            console.error("Gagal mengambil session user dari cookie:", error);
+        }
     }, []);
 
     const handleCreateClan = async (e: FormEvent) => {
         e.preventDefault();
-        if (!newClanName.trim() || !studentId.trim()) {
-            showToast("Nama Klan dan Student ID wajib diisi!", "error");
+
+        if (!studentId) {
+            showToast("Sesi login tidak ditemukan. Silakan login ulang.", "error");
+            return;
+        }
+
+        if (!newClanName.trim()) {
+            showToast("Nama Klan wajib diisi!", "error");
             return;
         }
 
@@ -89,7 +116,7 @@ export const InteraksiSosialLigaModule = () => {
                 body: JSON.stringify({
                     name: newClanName,
                     description: newClanDesc,
-                    leaderId: studentId,
+                    leaderId: studentId, // ID dikirim secara gaib dari state
                 }),
             });
 
@@ -109,8 +136,14 @@ export const InteraksiSosialLigaModule = () => {
 
     const handleJoinClan = async (e: FormEvent) => {
         e.preventDefault();
-        if (!joinClanId.trim() || !studentId.trim()) {
-            showToast("ID Klan dan Student ID wajib diisi!", "error");
+
+        if (!studentId) {
+            showToast("Sesi login tidak ditemukan. Silakan login ulang.", "error");
+            return;
+        }
+
+        if (!joinClanId.trim()) {
+            showToast("ID Klan wajib diisi!", "error");
             return;
         }
 
@@ -120,7 +153,7 @@ export const InteraksiSosialLigaModule = () => {
             const res = await fetch(`${API_BASE_URL}/api/clans/${joinClanId}/join`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ studentId }),
+                body: JSON.stringify({ studentId }), // ID dikirim otomatis
             });
 
             if (!res.ok) throw new Error("Gagal bergabung dengan klan");
@@ -135,6 +168,41 @@ export const InteraksiSosialLigaModule = () => {
         }
     };
 
+    const joinClanDirectly = async (targetClanId: string) => {
+        if (!studentId) {
+            showToast("Sesi login tidak ditemukan. Silakan login ulang.", "error");
+            return;
+        }
+
+        // Biar aman, kalau dia udah punya klan, tolak!
+        if (myClan) {
+            showToast("Kamu sudah berada di dalam sebuah klan!", "error");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/clans/${targetClanId}/join`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ studentId }),
+            });
+
+            if (!res.ok) throw new Error("Gagal bergabung dengan klan");
+
+            showToast("Berhasil bergabung dengan klan!", "success");
+            // Otomatis refresh data leaderboard biar kelihatan update-nya
+            fetchLeaderboard();
+
+            // TODO (Opsional): Lu bisa tambahin fungsi fetchMyClan() di sini
+            // biar UI status di sidebar sebelah kiri langsung berubah
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : "Terjadi kesalahan";
+            showToast(msg, "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
     return (
         <div className={shell}>
             <div className="mx-auto flex min-h-screen w-full max-w-7xl gap-4 px-4 py-4 lg:px-6">
@@ -198,16 +266,12 @@ export const InteraksiSosialLigaModule = () => {
                 <main className="min-w-0 flex-1">
                     <header className={`${panel} mb-4 flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between`}>
                         <div>
-                            <p className="text-sm font-bold text-emerald-700">Arena Kompetisi, {studentId.trim() || "Learner"}</p>
+                            {/* Dinamis nampilin nama dari cookie */}
+                            <p className="text-sm font-bold text-emerald-700">Arena Kompetisi, {studentName || "Learner"}</p>
                             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Liga Yomu</h1>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <input
-                                value={studentId}
-                                onChange={(event) => setStudentId(event.target.value)}
-                                placeholder="Masukkan Student ID..."
-                                className={`${input} sm:w-48`}
-                            />
+                            {/* Input Student ID udah dibuang! */}
                             <button type="button" onClick={fetchLeaderboard} className={secondary} disabled={isLoading}>
                                 {isLoading ? "Syncing..." : "Sync Data"}
                             </button>
@@ -237,14 +301,16 @@ export const InteraksiSosialLigaModule = () => {
                                         <th className="border-b border-slate-200 px-4 py-3 font-black">Nama Klan</th>
                                         <th className="border-b border-slate-200 px-4 py-3 font-black">Tier</th>
                                         <th className="border-b border-slate-200 px-4 py-3 font-black text-right">Poin Skor</th>
+                                        {/* TAMBAHAN: Kolom Baru Buat Tombol */}
+                                        <th className="border-b border-slate-200 px-4 py-3 font-black text-center">Aksi</th>
                                     </tr>
                                     </thead>
                                     <tbody>
                                     {isLoading ? (
-                                        <tr><td colSpan={4} className="text-center py-8 text-slate-500 font-medium">Memuat data klasemen...</td></tr>
+                                        <tr><td colSpan={5} className="text-center py-8 text-slate-500 font-medium">Memuat data klasemen...</td></tr>
                                     ) : leaderboard.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="text-center py-12">
+                                            <td colSpan={5} className="text-center py-12">
                                                 <div className="flex flex-col items-center justify-center">
                                                     <p className="text-lg font-bold text-slate-700">Belum ada klan yang terdaftar.</p>
                                                     <p className="text-sm text-slate-500 mt-1">Jadilah yang pertama membentuk klan dan raih peringkat puncak!</p>
@@ -265,6 +331,25 @@ export const InteraksiSosialLigaModule = () => {
                                                     <td className="border-b border-slate-100 px-4 py-4 font-bold text-slate-900">{clan.namaClan}</td>
                                                     <td className="border-b border-slate-100 px-4 py-4 font-semibold text-slate-600">{clan.tier}</td>
                                                     <td className="border-b border-slate-100 px-4 py-4 text-right font-black text-emerald-700">{clan.totalSkor?.toLocaleString()}</td>
+
+                                                    {/* TAMBAHAN: Tombol Gabung */}
+                                                    <td className="border-b border-slate-100 px-4 py-4 text-center">
+                                                        {myClan?.id === clan.id ? (
+                                                            <span className="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600">
+                                Klan Kamu
+                            </span>
+                                                        ) : !myClan ? (
+                                                            <button
+                                                                onClick={() => joinClanDirectly(clan.id)}
+                                                                disabled={isLoading}
+                                                                className="rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+                                                            >
+                                                                Gabung
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-400">-</span>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             );
                                         })
