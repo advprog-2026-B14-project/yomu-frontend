@@ -71,7 +71,7 @@ export const AdminModule = () => {
         setError(null);
         try {
             const token = getToken();
-            const url = `/api/admin/users`;
+            const url = `/api/admin/users?size=1000`;
             console.log("Fetching users from:", url, "with token:", token ? "Exists" : "Null");
             
             const res = await fetch(url, {
