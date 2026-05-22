@@ -1,9 +1,7 @@
 import { NextRequest } from "next/server";
 
 const ACHIEVEMENT_API_URL =
-  process.env.ACHIEVEMENT_API_URL ??
-  process.env.NEXT_PUBLIC_ACHIEVEMENT_API_BASE_URL ??
-  process.env.NEXT_PUBLIC_GATEWAY_URL;
+  process.env.NEXT_PUBLIC_GATEWAY_URL ?? "https://yomu-gateway-prod.fly.dev/";
 
 const hopByHopHeaders = new Set([
   "access-control-request-headers",
