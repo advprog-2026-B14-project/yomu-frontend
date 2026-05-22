@@ -19,6 +19,7 @@ const panel = "w-full max-w-md rounded-2xl border border-white/70 bg-white/80 sh
 const inputStyle = "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
 const primary = "w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300";
 const secondary = "w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-400";
+const danger = "w-full rounded-xl bg-rose-700 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-rose-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-300";
 
 export default function ProfilePage() {
   const params = useParams();
@@ -31,10 +32,12 @@ export default function ProfilePage() {
   const [isOwner, setIsOwner] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
 
   // Form states
   const [editFormData, setEditFormData] = useState({ fullName: "", username: "" });
   const [pwdFormData, setPwdFormData] = useState({ oldPassword: "", newPassword: "" });
+  const [deletePassword, setDeletePassword] = useState("");
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -168,6 +171,44 @@ export default function ProfilePage() {
     }
   };
 
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setFormSuccess("");
+    setIsSubmitting(true);
+    
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/user/account`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Gagal menghapus akun");
+      }
+
+      setFormSuccess("Akun berhasil dihapus! Mengalihkan...");
+      setTimeout(() => {
+        // Clear local storage and cookies
+        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+      }, 1500);
+    } catch (err: any) {
+      setFormError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className={`${shell} justify-center items-center`}>
@@ -231,6 +272,12 @@ export default function ProfilePage() {
                 className={secondary}
               >
                 Ganti Password
+              </button>
+              <button 
+                onClick={() => { setShowDeleteAccount(true); setFormError(""); setFormSuccess(""); setDeletePassword(""); }}
+                className={danger}
+              >
+                Hapus Akun
               </button>
             </div>
           )}
@@ -328,6 +375,58 @@ export default function ProfilePage() {
               >
                 {isSubmitting ? "Mengubah..." : "Ganti Password"}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {showDeleteAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className={`${panel} relative border-rose-200`}>
+            <button onClick={() => setShowDeleteAccount(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 font-bold">✕</button>
+            
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-rose-100 text-xl font-black text-rose-700 shadow-sm">
+              !
+            </div>
+            
+            <h3 className="text-xl font-black text-slate-950 mb-2 text-center">Yakin ingin hapus akun?</h3>
+            <p className="text-sm text-slate-600 mb-6 text-center leading-relaxed">
+              Tindakan ini tidak dapat dibatalkan. Semua data kamu akan terhapus secara permanen.
+            </p>
+            
+            {formError && <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-medium">{formError}</div>}
+            {formSuccess && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-medium">{formSuccess}</div>}
+            
+            <form onSubmit={handleDeleteAccount} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Masukkan Password untuk konfirmasi</label>
+                <input 
+                  type="password" 
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  className={inputStyle}
+                  placeholder="Password Anda..."
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setShowDeleteAccount(false)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                  disabled={isSubmitting}
+                >
+                  Batal
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting || !deletePassword}
+                  className="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? "Menghapus..." : "Ya, Hapus Akun"}
+                </button>
+              </div>
             </form>
           </div>
         </div>
