@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { getUser } from "@/lib/auth";
+import { getUser, getToken } from "@/lib/auth";
 
 const API_BASE_PATH = "/api/diskusi-forum";
 
@@ -95,11 +95,15 @@ export const DiskusiForumModule = ({
 
   const currentUserId = "550e8400-e29b-41d4-a716-446655440000";
   const session = getUser();
+  const token = getToken();
   const loggedInUserId = session?.id ?? currentUserId;
 
   const fetchComments = useCallback(async () => {
     try {
-      const res = await fetch(`${COMMENTS_API_BASE_URL}/reading/${readingId}`);
+      const res = await fetch(`${COMMENTS_API_BASE_URL}/reading/${readingId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        cache: "no-store",
+      });
       if (!res.ok) {
         const errorBody = await res.text();
         throw new Error(
@@ -116,6 +120,11 @@ export const DiskusiForumModule = ({
           try {
             const reactionRes = await fetch(
               `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
+              {
+                headers: token
+                  ? { Authorization: `Bearer ${token}` }
+                  : undefined,
+              },
             );
             const reactions: Reaction[] = reactionRes.ok
               ? await reactionRes.json()
@@ -171,7 +180,7 @@ export const DiskusiForumModule = ({
         err instanceof Error ? err.message : "Gagal mengambil komentar";
       setErrorMsg(message);
     }
-  }, [readingId, session]);
+  }, [readingId, session, token]);
 
   useEffect(() => {
     fetchComments();
@@ -215,9 +224,13 @@ export const DiskusiForumModule = ({
     setComments((prev) => [tempComment, ...prev]);
 
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(COMMENTS_API_BASE_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           userId: session?.id ?? currentUserId,
           readingId,
@@ -238,9 +251,13 @@ export const DiskusiForumModule = ({
 
   const handleUpdate = async (id: string) => {
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           userId: loggedInUserId,
           content: editContent,
@@ -259,10 +276,13 @@ export const DiskusiForumModule = ({
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus komentar ini?")) return;
     try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(
         `${COMMENTS_API_BASE_URL}/${id}?userId=${loggedInUserId}`,
         {
           method: "DELETE",
+          headers,
         },
       );
       if (!res.ok) throw new Error("Gagal menghapus komentar");
@@ -287,6 +307,7 @@ export const DiskusiForumModule = ({
     try {
       const reactionRes = await fetch(
         `${REACTIONS_API_BASE_URL}/comment/${commentId}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
       );
       const reactions: Reaction[] = reactionRes.ok
         ? await reactionRes.json()
@@ -357,13 +378,20 @@ export const DiskusiForumModule = ({
       if (existingReaction && existingReaction.reactionType === reactionType) {
         const deleteRes = await fetch(
           `${REACTIONS_API_BASE_URL}/${existingReaction.id}?userId=${loggedInUserId}`,
-          { method: "DELETE" },
+          {
+            method: "DELETE",
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          },
         );
         if (!deleteRes.ok) throw new Error("Gagal menghapus reaction");
       } else {
+        const reactionHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) reactionHeaders.Authorization = `Bearer ${token}`;
         const addRes = await fetch(REACTIONS_API_BASE_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: reactionHeaders,
           body: JSON.stringify({
             commentId,
             userId: loggedInUserId,
