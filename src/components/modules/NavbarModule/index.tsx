@@ -27,7 +27,6 @@ export const NavbarModule = () => {
   const navItems = [
     { name: "Beranda", path: "/" },
     { name: "Bacaan & Kuis", path: "/bacaan-kuis" },
-    { name: "Diskusi Forum", path: "/diskusi-forum" },
     { name: "Achievement", path: "/achievement" },
     { name: "Liga", path: "/interaksi-sosial-liga" },
   ];

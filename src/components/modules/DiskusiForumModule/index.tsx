@@ -41,8 +41,7 @@ type DiskusiForumModuleProps = {
   className?: string;
 };
 
-const DEFAULT_READING_ID = "770e8400-e29b-41d4-a716-446655440001";
-const DEFAULT_READING_TITLE = "Judul Bacaan Default";
+
 
 const shell = "w-full font-sans";
 const panel =
@@ -68,10 +67,25 @@ const REACTION_OPTIONS: Array<{
 ];
 
 export const DiskusiForumModule = ({
-  readingId = DEFAULT_READING_ID,
-  readingTitle = DEFAULT_READING_TITLE,
+  readingId,
+  readingTitle,
   className = "",
 }: DiskusiForumModuleProps) => {
+  if (!readingId) {
+    return (
+      <section className={`${shell} ${className}`.trim()}>
+        <div className={panel}>
+          <div className="py-20 text-center">
+            <h2 className="text-2xl font-black text-slate-800">Pilih bacaan terlebih dahulu</h2>
+            <p className="mt-3 text-sm text-slate-500">
+              Silakan pilih bacaan pada panel sebelah kiri untuk melihat dan mengikuti diskusi forum.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const formatDate = (iso?: string) => {
     if (!iso) return "";
     try {
