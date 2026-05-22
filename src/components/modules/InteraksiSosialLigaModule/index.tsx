@@ -4,6 +4,14 @@ import { useState, useEffect, FormEvent } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "http://localhost:8084";
 
+// --- TYPESCRIPT DEFINITIONS ---
+type ClanMember = {
+    userId: string;
+    name: string;
+    role: string; // "Ketua" | "Member"
+    score: number;
+};
+
 type Clan = {
     id: string;
     namaClan: string;
@@ -11,6 +19,7 @@ type Clan = {
     totalSkor: number;
     hasProductivityBuff?: boolean;
     hasLowAccuracyDebuff?: boolean;
+    members?: ClanMember[]; // Tambahan array anggota buat di halaman Klan Saya
 };
 
 // ─── TIER CONFIG ───────────────────────────────────────────────────────────────
@@ -193,7 +202,19 @@ export const InteraksiSosialLigaModule = () => {
                 body: JSON.stringify({ nama: newClanName, ketuaId: studentId }),
             });
             if (!res.ok) throw new Error("Gagal membuat klan");
+
             showToast("Klan berhasil dibuat!", "success");
+
+            // LOGIKA MOCK: Ubah status MyClan jadi klan yang baru dibuat (sebagai Ketua)
+            setMyClan({
+                id: "kln-baru-" + Math.floor(Math.random() * 1000), // ID Sementara
+                namaClan: newClanName,
+                tier: "BRONZE", // Default tier
+                totalSkor: 0,
+                members: [{ userId: studentId, name: studentName, role: "Ketua", score: 0 }]
+            });
+            setActiveView("clan"); // Langsung pindah ke halaman klan
+
             setNewClanName("");
             fetchLeaderboard();
         } catch (e) {
@@ -215,7 +236,22 @@ export const InteraksiSosialLigaModule = () => {
                 body: JSON.stringify({ clanId: joinClanId, userId: studentId }),
             });
             if (!res.ok) throw new Error("Gagal bergabung dengan klan");
+
             showToast("Berhasil bergabung!", "success");
+
+            // LOGIKA MOCK: Update UI jadi member klan
+            setMyClan({
+                id: joinClanId,
+                namaClan: "Klan Baru (Refresh untuk nama asli)",
+                tier: "BRONZE",
+                totalSkor: 0,
+                members: [
+                    { userId: "ketua-dummy", name: "Ketua Klan", role: "Ketua", score: 1200 },
+                    { userId: studentId, name: studentName, role: "Member", score: 0 }
+                ]
+            });
+            setActiveView("clan");
+
             setJoinClanId("");
             fetchLeaderboard();
         } catch (e) {
@@ -225,7 +261,7 @@ export const InteraksiSosialLigaModule = () => {
         }
     };
 
-    const joinClanDirectly = async (targetClanId: string) => {
+    const joinClanDirectly = async (targetClanId: string, targetClanName: string) => {
         if (!studentId) return showToast("Sesi login tidak ditemukan.", "error");
         if (myClan) return showToast("Kamu sudah berada di dalam sebuah klan!", "error");
         setIsLoading(true);
@@ -236,7 +272,22 @@ export const InteraksiSosialLigaModule = () => {
                 body: JSON.stringify({ clanId: targetClanId, userId: studentId }),
             });
             if (!res.ok) throw new Error("Gagal bergabung");
+
             showToast("Berhasil bergabung!", "success");
+
+            // LOGIKA MOCK: Langsung nge-set state biar ga usah nunggu API
+            setMyClan({
+                id: targetClanId,
+                namaClan: targetClanName,
+                tier: "BRONZE",
+                totalSkor: 0,
+                members: [
+                    { userId: "ketua-dummy", name: "Ketua Klan", role: "Ketua", score: 1500 },
+                    { userId: studentId, name: studentName, role: "Member", score: 0 }
+                ]
+            });
+            setActiveView("clan");
+
             fetchLeaderboard();
         } catch (e) {
             showToast(e instanceof Error ? e.message : "Terjadi kesalahan", "error");
@@ -252,25 +303,12 @@ export const InteraksiSosialLigaModule = () => {
 
                 {/* ── SIDEBAR ── */}
                 <aside style={{
-                    width: 240,
-                    flexShrink: 0,
-                    position: "sticky",
-                    top: 24,
-                    height: "calc(100vh - 48px)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
+                    width: 240, flexShrink: 0, position: "sticky", top: 24,
+                    height: "calc(100vh - 48px)", display: "flex", flexDirection: "column", gap: 8,
                 }}>
-                    {/* Logo */}
                     <div style={{
-                        background: "#fff",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: 16,
-                        padding: "16px 20px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        marginBottom: 4,
+                        background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16,
+                        padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, marginBottom: 4,
                     }}>
                         <div style={{
                             width: 40, height: 40, borderRadius: 12,
@@ -284,7 +322,6 @@ export const InteraksiSosialLigaModule = () => {
                         </div>
                     </div>
 
-                    {/* Nav */}
                     <nav style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 8 }}>
                         {([
                             ["leaderboard", "Klasemen Liga", "🏆"],
@@ -297,8 +334,7 @@ export const InteraksiSosialLigaModule = () => {
                                         background: activeView === view ? "#059669" : "transparent",
                                         color: activeView === view ? "#fff" : "#475569",
                                         fontSize: 13, fontWeight: 700, cursor: "pointer",
-                                        transition: "all 0.15s",
-                                        marginBottom: 2,
+                                        transition: "all 0.15s", marginBottom: 2,
                                     }}>
                                 <span style={{ fontSize: 15 }}>{icon}</span>
                                 {label}
@@ -306,13 +342,8 @@ export const InteraksiSosialLigaModule = () => {
                         ))}
                     </nav>
 
-                    {/* Status Klan */}
                     <div style={{
-                        background: "#0f172a",
-                        borderRadius: 16,
-                        padding: 16,
-                        color: "#fff",
-                        marginTop: "auto",
+                        background: "#0f172a", borderRadius: 16, padding: 16, color: "#fff", marginTop: "auto",
                     }}>
                         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "#34d399", textTransform: "uppercase", marginBottom: 8 }}>Status Klan</div>
                         <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.3 }}>
@@ -341,15 +372,9 @@ export const InteraksiSosialLigaModule = () => {
                 {/* ── MAIN ── */}
                 <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
 
-                    {/* Header */}
                     <div style={{
-                        background: "#fff",
-                        border: "1px solid #e2e8f0",
-                        borderRadius: 16,
-                        padding: "18px 24px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
+                        background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "18px 24px",
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
                     }}>
                         <div>
                             <div style={{ fontSize: 12, fontWeight: 700, color: "#059669", marginBottom: 4 }}>
@@ -358,25 +383,20 @@ export const InteraksiSosialLigaModule = () => {
                             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: "-0.03em" }}>Liga Yomu</h1>
                         </div>
                         <button onClick={fetchLeaderboard} disabled={isLoading} style={{
-                            padding: "8px 18px", borderRadius: 10, border: "1px solid #e2e8f0",
-                            background: "#fff", fontSize: 13, fontWeight: 700, color: "#475569",
-                            cursor: "pointer", transition: "all 0.15s",
+                            padding: "8px 18px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#fff",
+                            fontSize: 13, fontWeight: 700, color: "#475569", cursor: "pointer", transition: "all 0.15s",
                         }}>
                             {isLoading ? "Syncing…" : "↻ Sync"}
                         </button>
                     </div>
 
-                    {/* Stats */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
                         {([
                             ["Total Klan", leaderboard.length.toString(), "#059669"],
                             ["Poin Tertinggi", leaderboard[0]?.totalSkor?.toLocaleString() ?? "0", "#d97706"],
                             ["Musim", "Season 1", "#7c3aed"],
                         ] as const).map(([label, value, color]) => (
-                            <div key={label} style={{
-                                background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14,
-                                padding: "16px 18px",
-                            }}>
+                            <div key={label} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "16px 18px" }}>
                                 <div style={{ width: 32, height: 3, borderRadius: 2, background: color, marginBottom: 10 }} />
                                 <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
                                 <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.03em", marginTop: 4 }}>{value}</div>
@@ -386,10 +406,7 @@ export const InteraksiSosialLigaModule = () => {
 
                     {/* ── LEADERBOARD VIEW ── */}
                     {activeView === "leaderboard" && (
-                        <div style={{
-                            background: "#fff", border: "1px solid #e2e8f0",
-                            borderRadius: 16, padding: "24px 24px 32px",
-                        }}>
+                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "24px 24px 32px" }}>
                             <div style={{ marginBottom: 28 }}>
                                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#059669", textTransform: "uppercase" }}>Global Ranking</div>
                                 <h2 style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>Klasemen Liga</h2>
@@ -410,13 +427,8 @@ export const InteraksiSosialLigaModule = () => {
                                         const cfg = getTierConfig(tierName);
                                         return (
                                             <TierSection
-                                                key={tierName}
-                                                tierName={tierName}
-                                                clans={clansInTier}
-                                                cfg={cfg}
-                                                myClanId={myClan?.id}
-                                                onJoin={joinClanDirectly}
-                                                isLoading={isLoading}
+                                                key={tierName} tierName={tierName} clans={clansInTier} cfg={cfg}
+                                                myClanId={myClan?.id} onJoin={joinClanDirectly} isLoading={isLoading}
                                             />
                                         );
                                     })}
@@ -425,66 +437,77 @@ export const InteraksiSosialLigaModule = () => {
                         </div>
                     )}
 
-                    {/* ── CLAN VIEW ── */}
+                    {/* ── CLAN VIEW (DASHBOARD KLAN / BUAT GABUNG) ── */}
                     {activeView === "clan" && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                            {/* Buat Klan */}
-                            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 24 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#059669", textTransform: "uppercase" }}>Manajemen Klan</div>
-                                <h2 style={{ margin: "4px 0 8px", fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em" }}>Buat Klan Baru</h2>
-                                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 20, lineHeight: 1.6 }}>Jadilah ketua dan kumpulkan teman-temanmu untuk memanjat tier Liga.</p>
-                                <form onSubmit={handleCreateClan}>
-                                    <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>Nama Klan</label>
-                                    <input
-                                        value={newClanName}
-                                        onChange={e => setNewClanName(e.target.value)}
-                                        placeholder="Masukkan nama klan yang keren…"
-                                        style={{
-                                            width: "100%", padding: "10px 14px", borderRadius: 10,
-                                            border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none",
-                                            boxSizing: "border-box", marginBottom: 12,
-                                        }}
-                                    />
-                                    <button type="submit" disabled={isLoading} style={{
-                                        width: "100%", padding: "11px", borderRadius: 10, border: "none",
-                                        background: "#059669", color: "#fff", fontSize: 14, fontWeight: 700,
-                                        cursor: "pointer",
-                                    }}>
-                                        {isLoading ? "Memproses…" : "Bentuk Klan Sekarang"}
-                                    </button>
-                                </form>
-                            </div>
+                        myClan ?(
+                            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 32 }}>
+                                <div style={{ marginBottom: 32 }}>
+                                    <h2 style={{ fontSize: 32, fontWeight: 900, margin: 0 }}>{myClan.namaClan}</h2>
+                                    <div style={{ color: "#64748b", marginTop: 4 }}>Dashboard Statistik Klan</div>
+                                </div>
 
-                            {/* Gabung Klan */}
-                            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 24 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#64748b", textTransform: "uppercase" }}>Atau</div>
-                                <h2 style={{ margin: "4px 0 8px", fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em" }}>Gabung Klan</h2>
-                                <p style={{ fontSize: 13, color: "#64748b", marginBottom: 20, lineHeight: 1.6 }}>Masukkan ID Klan untuk bergabung dengan temanmu.</p>
-                                <form onSubmit={handleJoinClan} style={{ display: "flex", gap: 8 }}>
-                                    <input
-                                        value={joinClanId}
-                                        onChange={e => setJoinClanId(e.target.value)}
-                                        placeholder="ID Klan (contoh: df71…)"
-                                        style={{
-                                            flex: 1, padding: "10px 14px", borderRadius: 10,
-                                            border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none",
-                                        }}
-                                    />
-                                    <button type="submit" disabled={isLoading} style={{
-                                        padding: "10px 18px", borderRadius: 10, border: "1.5px solid #e2e8f0",
-                                        background: "#fff", fontSize: 13, fontWeight: 700, color: "#334155",
-                                        cursor: "pointer", whiteSpace: "nowrap",
-                                    }}>Gabung</button>
-                                </form>
+                                {/* Stats Grid */}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+                                    <StatCard label="Jumlah Anggota" value={`${(myClan as any).memberCount || 0} Orang`} tone="emerald" />
+                                    <StatCard label="Total Skor Klan" value={(myClan.totalSkor || 0).toLocaleString()} tone="amber" />
+                                </div>
 
-                                <div style={{ marginTop: 24, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: 16 }}>
-                                    <div style={{ fontWeight: 800, color: "#78350f", marginBottom: 8 }}>Sistem Buff & Debuff ⚠️</div>
-                                    <p style={{ fontSize: 13, color: "#92400e", lineHeight: 1.7, margin: 0 }}>
-                                        Klanmu bisa mendapatkan <strong>Produktivitas ×1.2</strong> jika misi harian tercapai. Namun jika rata-rata akurasi kuis anggotamu rendah, klan akan terkena <strong>Debuff ×0.8</strong>!
+                                <div style={{ marginTop: 24, padding: 20, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                                    <h4 style={{ margin: "0 0 8px 0", fontWeight: 800 }}>Tier Saat Ini: <span style={{ color: "#059669" }}>{myClan.tier}</span></h4>
+                                    <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
+                                        Terus kumpulkan skor individu untuk membantu klanmu naik ke tier selanjutnya!
                                     </p>
                                 </div>
                             </div>
-                        </div>
+                        ) : (
+                            // HALAMAN BUAT / GABUNG KLAN (Kalau belum punya klan)
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                                {/* Buat Klan */}
+                                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 24 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#059669", textTransform: "uppercase" }}>Manajemen Klan</div>
+                                    <h2 style={{ margin: "4px 0 8px", fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em" }}>Buat Klan Baru</h2>
+                                    <p style={{ fontSize: 13, color: "#64748b", marginBottom: 20, lineHeight: 1.6 }}>Jadilah ketua dan kumpulkan teman-temanmu untuk memanjat tier Liga.</p>
+                                    <form onSubmit={handleCreateClan}>
+                                        <label style={{ fontSize: 12, fontWeight: 700, color: "#475569", display: "block", marginBottom: 6 }}>Nama Klan</label>
+                                        <input
+                                            value={newClanName} onChange={e => setNewClanName(e.target.value)}
+                                            placeholder="Masukkan nama klan yang keren…"
+                                            style={{
+                                                width: "100%", padding: "10px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", marginBottom: 12,
+                                            }}
+                                        />
+                                        <button type="submit" disabled={isLoading} style={{
+                                            width: "100%", padding: "11px", borderRadius: 10, border: "none", background: "#059669", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                                        }}>
+                                            {isLoading ? "Memproses…" : "Bentuk Klan Sekarang"}
+                                        </button>
+                                    </form>
+                                </div>
+
+                                {/* Gabung Klan */}
+                                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 24 }}>
+                                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#64748b", textTransform: "uppercase" }}>Atau</div>
+                                    <h2 style={{ margin: "4px 0 8px", fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em" }}>Gabung Klan</h2>
+                                    <p style={{ fontSize: 13, color: "#64748b", marginBottom: 20, lineHeight: 1.6 }}>Masukkan ID Klan untuk bergabung dengan temanmu.</p>
+                                    <form onSubmit={handleJoinClan} style={{ display: "flex", gap: 8 }}>
+                                        <input
+                                            value={joinClanId} onChange={e => setJoinClanId(e.target.value)} placeholder="ID Klan (contoh: df71…)"
+                                            style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none" }}
+                                        />
+                                        <button type="submit" disabled={isLoading} style={{
+                                            padding: "10px 18px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", fontSize: 13, fontWeight: 700, color: "#334155", cursor: "pointer", whiteSpace: "nowrap",
+                                        }}>Gabung</button>
+                                    </form>
+
+                                    <div style={{ marginTop: 24, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: 16 }}>
+                                        <div style={{ fontWeight: 800, color: "#78350f", marginBottom: 8 }}>Sistem Buff & Debuff ⚠️</div>
+                                        <p style={{ fontSize: 13, color: "#92400e", lineHeight: 1.7, margin: 0 }}>
+                                            Klanmu bisa mendapatkan <strong>Produktivitas ×1.2</strong> jika misi harian tercapai. Namun jika rata-rata akurasi kuis anggotamu rendah, klan akan terkena <strong>Debuff ×0.8</strong>!
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )
                     )}
                 </main>
             </div>
@@ -492,12 +515,9 @@ export const InteraksiSosialLigaModule = () => {
             {/* Toast */}
             {toast && (
                 <div style={{
-                    position: "fixed", bottom: 20, right: 20, zIndex: 50,
-                    padding: "12px 18px", borderRadius: 12,
-                    background: toast.type === "error" ? "#dc2626" : "#059669",
-                    color: "#fff", fontSize: 13, fontWeight: 700,
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-                    animation: "slideUp 0.2s ease",
+                    position: "fixed", bottom: 20, right: 20, zIndex: 50, padding: "12px 18px", borderRadius: 12,
+                    background: toast.type === "error" ? "#dc2626" : "#059669", color: "#fff", fontSize: 13, fontWeight: 700,
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.18)", animation: "slideUp 0.2s ease",
                 }}>
                     {toast.message}
                 </div>
@@ -507,69 +527,44 @@ export const InteraksiSosialLigaModule = () => {
 };
 
 // ─── TIER SECTION ──────────────────────────────────────────────────────────────
-const TierSection = ({
-                         tierName, clans, cfg, myClanId, onJoin, isLoading,
-                     }: {
-    tierName: string;
-    clans: Clan[];
-    cfg: ReturnType<typeof getTierConfig>;
-    myClanId?: string;
-    onJoin: (id: string) => void;
-    isLoading: boolean;
+// Simple stat card used in Clan dashboard
+const StatCard = ({ label, value, tone }: { label: string; value: string; tone: "emerald" | "amber" | "purple" }) => {
+    const colors: Record<string, string> = {
+        emerald: "#059669",
+        amber: "#d97706",
+        purple: "#7c3aed",
+    };
+    const color = colors[tone];
+    return (
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16 }}>
+            <div style={{ width: 32, height: 4, borderRadius: 2, background: color, marginBottom: 10 }} />
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>{value}</div>
+        </div>
+    );
+};
+
+const TierSection = ({ tierName, clans, cfg, myClanId, onJoin, isLoading }: {
+    tierName: string; clans: Clan[]; cfg: ReturnType<typeof getTierConfig>; myClanId?: string; onJoin: (id: string, name: string) => void; isLoading: boolean;
 }) => (
     <div>
         {/* Tier Header */}
-        <div style={{
-            display: "flex", alignItems: "center", gap: 12,
-            marginBottom: 12,
-        }}>
-            {/* Icon badge */}
-            <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: cfg.accentLight,
-                border: `2px solid ${cfg.border}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16, color: cfg.accent, fontWeight: 900,
-                flexShrink: 0,
-            }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: cfg.accentLight, border: `2px solid ${cfg.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: cfg.accent, fontWeight: 900, flexShrink: 0 }}>
                 {cfg.icon}
             </div>
-
-            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.01em", color: cfg.accentText, textTransform: "uppercase" }}>
-                {cfg.label}
-            </div>
-
-            {/* Divider line */}
+            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.01em", color: cfg.accentText, textTransform: "uppercase" }}>{cfg.label}</div>
             <div style={{ flex: 1, height: 2, background: cfg.border, borderRadius: 2 }} />
-
-            {/* Count badge */}
-            <div style={{
-                fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 8,
-                background: cfg.badge, color: cfg.badgeText, border: `1px solid ${cfg.border}`,
-            }}>
+            <div style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 8, background: cfg.badge, color: cfg.badgeText, border: `1px solid ${cfg.border}` }}>
                 {clans.length} Klan
             </div>
         </div>
 
         {/* Table */}
-        <div style={{
-            borderRadius: 14,
-            border: `1.5px solid ${cfg.border}`,
-            overflow: "hidden",
-        }}>
-            {/* Table Head */}
-            <div style={{
-                display: "grid", gridTemplateColumns: "56px 1fr 140px 100px",
-                padding: "10px 16px",
-                background: cfg.headerBg,
-                borderBottom: `1px solid ${cfg.divider}`,
-            }}>
+        <div style={{ borderRadius: 14, border: `1.5px solid ${cfg.border}`, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "56px 1fr 140px 100px", padding: "10px 16px", background: cfg.headerBg, borderBottom: `1px solid ${cfg.divider}` }}>
                 {["Rank", "Nama Klan", "Poin Skor", "Aksi"].map((h, i) => (
-                    <div key={h} style={{
-                        fontSize: 11, fontWeight: 800, letterSpacing: "0.07em",
-                        textTransform: "uppercase", color: cfg.accentText,
-                        textAlign: i === 0 ? "center" : i >= 2 ? "right" : "left",
-                    }}>{h}</div>
+                    <div key={h} style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase", color: cfg.accentText, textAlign: i === 0 ? "center" : i >= 2 ? "right" : "left" }}>{h}</div>
                 ))}
             </div>
 
@@ -577,15 +572,17 @@ const TierSection = ({
             {clans.map((clan, idx) => {
                 const rank = idx + 1;
                 const isMe = myClanId === clan.id;
-                const bgColor = rank === 1 ? cfg.rowTop : rank === 2 ? cfg.rowSub : "#fff";
+
+                // HIGHLIGHT LOGIC: Kalau klan sendiri, kasih background emerald muda dan border hijau
+                const baseBg = rank === 1 ? cfg.rowTop : rank === 2 ? cfg.rowSub : "#fff";
+                const rowBg = isMe ? "#ecfdf5" : baseBg;
+                const highlightBorder = isMe ? "inset 4px 0 0 #10b981" : "none";
 
                 return (
                     <div key={clan.id} style={{
-                        display: "grid", gridTemplateColumns: "56px 1fr 140px 100px",
-                        padding: "14px 16px", background: bgColor,
-                        borderTop: idx > 0 ? `1px solid ${cfg.divider}` : "none",
-                        alignItems: "center",
-                        transition: "background 0.15s",
+                        display: "grid", gridTemplateColumns: "56px 1fr 140px 100px", padding: "14px 16px",
+                        background: rowBg, borderTop: idx > 0 ? `1px solid ${cfg.divider}` : "none", alignItems: "center",
+                        boxShadow: highlightBorder, transition: "background 0.15s",
                     }}>
                         {/* Rank */}
                         <div style={{ textAlign: "center" }}>
@@ -598,13 +595,8 @@ const TierSection = ({
 
                         {/* Name */}
                         <div>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>{clan.namaClan}</div>
-                            <div style={{
-                                fontSize: 11, color: "#94a3b8", marginTop: 2,
-                                fontFamily: "monospace",
-                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                                maxWidth: 280,
-                            }}>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: isMe ? "#065f46" : "#0f172a" }}>{clan.namaClan}</div>
+                            <div style={{ fontSize: 11, color: isMe ? "#10b981" : "#94a3b8", marginTop: 2, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }}>
                                 {clan.id}
                             </div>
                         </div>
@@ -617,15 +609,12 @@ const TierSection = ({
                         {/* Action */}
                         <div style={{ textAlign: "right" }}>
                             {isMe ? (
-                                <span style={{
-                                    fontSize: 11, fontWeight: 700, padding: "5px 10px",
-                                    borderRadius: 8, background: "#f1f5f9", color: "#64748b",
-                                }}>Klanmu</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, padding: "5px 10px", borderRadius: 8, background: "#10b981", color: "#fff", boxShadow: "0 2px 10px rgba(16,185,129,0.3)" }}>
+                                    Klanmu
+                                </span>
                             ) : !myClanId ? (
-                                <button onClick={() => onJoin(clan.id)} disabled={isLoading} style={{
-                                    fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8,
-                                    border: `1.5px solid ${cfg.border}`, background: cfg.accentLight,
-                                    color: cfg.accentText, cursor: "pointer", transition: "all 0.15s",
+                                <button onClick={() => onJoin(clan.id, clan.namaClan)} disabled={isLoading} style={{
+                                    fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 8, border: `1.5px solid ${cfg.border}`, background: cfg.accentLight, color: cfg.accentText, cursor: "pointer", transition: "all 0.15s",
                                 }}>Gabung</button>
                             ) : (
                                 <span style={{ color: "#e2e8f0", fontSize: 16 }}>—</span>
@@ -637,15 +626,3 @@ const TierSection = ({
         </div>
     </div>
 );
-
-// ─── STAT CARD (unused but kept for compatibility) ─────────────────────────────
-export const StatCard = ({ label, value, tone }: { label: string; value: string; tone: "emerald" | "amber" | "purple" }) => {
-    const colors = { emerald: "#059669", amber: "#d97706", purple: "#7c3aed" };
-    return (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "16px 18px" }}>
-            <div style={{ width: 32, height: 3, borderRadius: 2, background: colors[tone], marginBottom: 10 }} />
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
-            <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.03em", marginTop: 4 }}>{value}</div>
-        </div>
-    );
-};
