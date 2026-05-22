@@ -15,6 +15,7 @@ import type {
   UserAchievementProgressDto,
   UserDailyMissionDto,
 } from "@/types/achievement";
+import { getUser } from "@/lib/auth";
 
 // ─── Design‑system tokens (identical to BacaanKuisModule) ───
 
@@ -109,14 +110,21 @@ export const AchievementModule = () => {
   };
 
   useEffect(() => {
-    const authId = typeof window !== "undefined" ? localStorage.getItem("userId") || "UID_FROM_AUTH_SESSION" : "UID_FROM_AUTH_SESSION";
+    const authUser = typeof window !== "undefined" ? getUser() : null;
+    const authId = authUser?.id || "";
     setUserId(authId);
-    const timer = window.setTimeout(() => {
-      fetchProfile(authId);
-      fetchUnlockedAchievements(authId);
-      fetchProgressData(authId);
-    }, 0);
-    return () => window.clearTimeout(timer);
+    
+    if (authId) {
+      const timer = window.setTimeout(() => {
+        fetchProfile(authId);
+        fetchUnlockedAchievements(authId);
+        fetchProgressData(authId);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    } else {
+      setLoading(false);
+      setError("Silakan login terlebih dahulu untuk melihat Achievement.");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,28 +209,6 @@ export const AchievementModule = () => {
 							<h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
 								Achievement &amp; Gamification
 							</h1>
-						</div>
-						<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-							<input
-								id="userId-input"
-								value={userId}
-								onChange={(e) => setUserId(e.target.value)}
-								placeholder="User ID"
-								className={`${inputClass} sm:w-48`}
-							/>
-              <button
-                id="sync-btn"
-                type="button"
-                className={secondary}
-                disabled={loading || !userId.trim()}
-                onClick={() => {
-                  fetchProfile(userId.trim());
-                  fetchUnlockedAchievements(userId.trim());
-                  fetchProgressData(userId.trim());
-                }}
-              >
-                {loading ? "Memuat…" : "Sync Data"}
-              </button>
 						</div>
 					</header>
 
