@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { DiskusiForumModule } from "@/components/modules/DiskusiForumModule";
 import { AuthUser, getUser } from "@/lib/auth";
 
 type Category = {
@@ -82,13 +81,8 @@ const estimateReadingTime = (content: string) => {
   return Math.max(1, Math.ceil(words / 180));
 };
 
-const toForumReadingId = (readingId: number) => {
-  const suffix = readingId.toString(16).padStart(12, "0").slice(-12);
-  return `00000000-0000-4000-8000-${suffix}`;
-};
-
 export const BacaanKuisModule = () => {
-  const [activeView, setActiveView] = useState<"learn" | "quiz" | "forum">("learn");
+  const [activeView, setActiveView] = useState<"learn" | "quiz">("learn");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -122,7 +116,7 @@ export const BacaanKuisModule = () => {
     const readingId = Number(selectedReadingId);
     return readings.find((reading) => reading.id === readingId) ?? null;
   }, [readings, selectedReadingId]);
-  const sessionLabel = sessionUser?.fullName || sessionUser?.username || sessionUser?.email || "Learner";
+  const sessionLabel = sessionUser?.username || sessionUser?.fullName || sessionUser?.email || "Learner";
 
   const answeredCount = useMemo(() => Object.values(learnerAnswers).filter(Boolean).length, [learnerAnswers]);
   const quizProgress = learnerQuestions.length ? Math.round((answeredCount / learnerQuestions.length) * 100) : 0;
@@ -406,6 +400,15 @@ export const BacaanKuisModule = () => {
     showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };
 
+  const navigateView = (view: "learn" | "quiz" | "forum") => {
+    if (view === "forum") {
+      window.location.href = "/diskusi-forum";
+      return;
+    }
+
+    setActiveView(view);
+  };
+
 
 
   return (
@@ -429,7 +432,7 @@ export const BacaanKuisModule = () => {
               <button
                 key={view}
                 type="button"
-                onClick={() => setActiveView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
                 className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
                   activeView === view ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10" : "text-slate-600 hover:bg-slate-100"
                 }`}
@@ -463,13 +466,6 @@ export const BacaanKuisModule = () => {
               <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Bacaan dan Kuis</h1>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div
-                className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 sm:w-64"
-                title={studentId ? `Auth user ID: ${studentId}` : "Sesi login belum terdeteksi"}
-              >
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Akun Session</p>
-                <p className="truncate font-bold text-slate-900">{sessionUser?.email || sessionUser?.username || "Belum login"}</p>
-              </div>
               <button
                 type="button"
                 className={secondary}
@@ -537,7 +533,7 @@ export const BacaanKuisModule = () => {
               <button
                 key={view}
                 type="button"
-                onClick={() => setActiveView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
                 className={`rounded-xl px-3 py-2 text-sm font-bold ${
                   activeView === view ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600"
                 }`}
@@ -855,14 +851,6 @@ export const BacaanKuisModule = () => {
               </aside>
             </section>
           )}
-
-          {activeView === "forum" && (
-            <DiskusiForumModule
-              readingId={selectedReading ? toForumReadingId(selectedReading.id) : undefined}
-              readingTitle={selectedReading?.title}
-            />
-          )}
-
 
         </main>
       </div>
