@@ -273,11 +273,11 @@ export const AchievementModule = () => {
 					</section>
 
 					{/* Mobile tab (for consistency with BacaanKuis) */}
-					<div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden">
+					<div className="mb-4 grid grid-cols-4 gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden">
 						{[
 							["/bacaan-kuis", "Bacaan"],
 							["/achievement", "Achievement"],
-
+							["/diskusi-forum", "Forum"],
 							["/interaksi-sosial-liga", "Liga"],
 						].map(([href, label]) => {
 							const isActive = href === "/achievement";
