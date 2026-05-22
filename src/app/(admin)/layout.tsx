@@ -30,6 +30,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         { name: "Users", path: "/admin/users", icon: "👥", exact: false },
         { name: "Achievements", path: "/admin/achievement", icon: "🏆", exact: false },
         { name: "Bacaan & Kuis", path: "/admin/bacaan-kuis", icon: "📖", exact: false },
+        { name: "Diskusi Forum", path: "/admin/diskusi-forum", icon: "💬", exact: false },
     ];
 
     const handleLogout = async () => {
