@@ -178,6 +178,33 @@ export const InteraksiSosialLigaModule = () => {
         }
     };
 
+    // ─── [BARU] FUNGSI NARIK DATA KLAN SENDIRI ───
+    const fetchMyClan = async (userId: string) => {
+        try {
+            // Coba ambil token dari cookie (asumsi nama cookie-nya token atau auth_token)
+            const cookies = document.cookie.split("; ");
+            const tokenCookie = cookies.find(c => c.startsWith("token=") || c.startsWith("auth_token="));
+            const token = tokenCookie ? tokenCookie.split("=")[1] : "";
+
+            const headers: HeadersInit = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+
+            const res = await fetch(`${API_BASE_URL}/liga/clan/me?userId=${userId}`, {
+                method: "GET",
+                headers: headers
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setMyClan(data);
+            } else {
+                setMyClan(null); // Kalo 404 brarti blm punya klan
+            }
+        } catch (e) {
+            console.error("User belum punya klan atau server error");
+        }
+    };
+
     useEffect(() => {
         fetchLeaderboard();
         try {
@@ -188,6 +215,9 @@ export const InteraksiSosialLigaModule = () => {
                 if (userData?.id) {
                     setStudentId(userData.id);
                     setStudentName(userData.username || userData.fullName || "Learner");
+
+                    // ─── [BARU] LANGSUNG PANGGIL SETELAH DAPET USER ID ───
+                    fetchMyClan(userData.id);
                 }
             }
         } catch {}
@@ -208,14 +238,8 @@ export const InteraksiSosialLigaModule = () => {
 
             showToast("Klan berhasil dibuat!", "success");
 
-            // LOGIKA MOCK: Ubah status MyClan jadi klan yang baru dibuat (sebagai Ketua)
-            setMyClan({
-                id: "kln-baru-" + Math.floor(Math.random() * 1000),
-                namaClan: newClanName,
-                tier: "BRONZE",
-                totalSkor: 0,
-                members: [{ userId: studentId, name: studentName, role: "Ketua", score: 0 }]
-            });
+            // Ambil data terbaru dari DB biar sinkron
+            await fetchMyClan(studentId);
             setActiveView("clan");
 
             setNewClanName("");
@@ -242,17 +266,8 @@ export const InteraksiSosialLigaModule = () => {
 
             showToast("Berhasil bergabung!", "success");
 
-            // LOGIKA MOCK: Update UI jadi member klan
-            setMyClan({
-                id: joinClanId,
-                namaClan: "Klan Baru (Refresh untuk nama asli)",
-                tier: "BRONZE",
-                totalSkor: 0,
-                members: [
-                    { userId: "ketua-dummy", name: "Ketua Klan", role: "Ketua", score: 1200 },
-                    { userId: studentId, name: studentName, role: "Member", score: 0 }
-                ]
-            });
+            // Ambil data terbaru dari DB biar sinkron
+            await fetchMyClan(studentId);
             setActiveView("clan");
 
             setJoinClanId("");
@@ -278,17 +293,8 @@ export const InteraksiSosialLigaModule = () => {
 
             showToast("Berhasil bergabung!", "success");
 
-            // LOGIKA MOCK: Langsung nge-set state biar ga usah nunggu API
-            setMyClan({
-                id: targetClanId,
-                namaClan: targetClanName,
-                tier: "BRONZE",
-                totalSkor: 0,
-                members: [
-                    { userId: "ketua-dummy", name: "Ketua Klan", role: "Ketua", score: 1500 },
-                    { userId: studentId, name: studentName, role: "Member", score: 0 }
-                ]
-            });
+            // Ambil data terbaru dari DB biar sinkron
+            await fetchMyClan(studentId);
             setActiveView("clan");
 
             fetchLeaderboard();
@@ -330,7 +336,7 @@ export const InteraksiSosialLigaModule = () => {
                             ["leaderboard", "Klasemen Liga", "🏆"],
                             ["clan", "Klan Saya", "⚔️"],
                         ] as const).map(([view, label, icon]) => (
-                            <button key={view} onClick={() => setActiveView(view)}
+                            <button key={view} onClick={() => setActiveView(view as any)}
                                     style={{
                                         width: "100%", display: "flex", alignItems: "center", gap: 10,
                                         padding: "10px 12px", borderRadius: 10, border: "none",
@@ -498,7 +504,6 @@ export const InteraksiSosialLigaModule = () => {
 
                                                 {/* 2. SISI TENGAH (Showcase Achievement) */}
                                                 <div style={{ display: "flex", gap: 8, flex: 1, justifyContent: "center" }}>
-                                                    {/* MOCKUP: Nanti diganti pake data member.pinnedAchievements dari API */}
                                                     <div title="Penakluk Kuis" style={{ width: 32, height: 32, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, cursor: "help" }}>🔥</div>
                                                     <div title="Rajin Membaca" style={{ width: 32, height: 32, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, cursor: "help" }}>📚</div>
                                                     <div title="Top Global" style={{ width: 32, height: 32, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, cursor: "help" }}>🏆</div>
@@ -588,7 +593,6 @@ export const InteraksiSosialLigaModule = () => {
 };
 
 // ─── TIER SECTION ──────────────────────────────────────────────────────────────
-// Simple stat card used in Clan dashboard
 const StatCard = ({ label, value, tone }: { label: string; value: string; tone: "emerald" | "amber" | "purple" }) => {
     const colors: Record<string, string> = {
         emerald: "#059669",
@@ -634,7 +638,6 @@ const TierSection = ({ tierName, clans, cfg, myClanId, onJoin, isLoading }: {
                 const rank = idx + 1;
                 const isMe = myClanId === clan.id;
 
-                // HIGHLIGHT LOGIC: Kalau klan sendiri, kasih background emerald muda dan border hijau
                 const baseBg = rank === 1 ? cfg.rowTop : rank === 2 ? cfg.rowSub : "#fff";
                 const rowBg = isMe ? "#ecfdf5" : baseBg;
                 const highlightBorder = isMe ? "inset 4px 0 0 #10b981" : "none";
