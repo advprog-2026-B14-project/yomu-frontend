@@ -214,43 +214,35 @@ export const InteraksiSosialLigaModule = () => {
     useEffect(() => {
         fetchLeaderboard();
         try {
-            const cookies = document.cookie.split(";");
-            const userCookie = cookies.find(c => c.trim().startsWith("user="));
-            if (userCookie) {
-                const userData = JSON.parse(decodeURIComponent(userCookie.split("=")[1]));
-                if (userData?.id) {
-                    setStudentId(userData.id);
-                    setStudentName(userData.username || userData.fullName || "Learner");
-                    fetchMyClan(userData.id);
+            let userData = null;
+
+            const localUser = localStorage.getItem("user") || localStorage.getItem("userData");
+            if (localUser) {
+                userData = JSON.parse(localUser);
+            }
+
+            if (!userData) {
+                const cookies = document.cookie.split(";");
+                const userCookie = cookies.find(c => c.trim().startsWith("user="));
+                if (userCookie) {
+                    // Pake decodeURIComponent buat jaga-jaga formatnya aneh
+                    const cookieValue = userCookie.split("=")[1];
+                    userData = JSON.parse(decodeURIComponent(cookieValue));
                 }
             }
-        } catch {}
-    }, []);
 
-    const handleCreateClan = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!studentId) return showToast("Sesi login tidak ditemukan.", "error");
-        if (!newClanName.trim()) return showToast("Nama Klan wajib diisi!", "error");
-        setIsLoading(true);
-        try {
-            const res = await fetch(`${API_BASE_URL}/liga/clan/create`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nama: newClanName, ketuaId: studentId }),
-            });
-            if (!res.ok) throw new Error("Gagal membuat klan");
+            if (userData && userData.id) {
+                setStudentId(userData.id);
+                setStudentName(userData.username || userData.fullName || "Learner");
 
-            showToast("Klan berhasil dibuat!", "success");
-            await fetchMyClan(studentId);
-            setActiveView("clan");
-            setNewClanName("");
-            fetchLeaderboard();
+                fetchMyClan(userData.id);
+            } else {
+                console.warn("⚠️ Data user ga ketemu! Cookie atau localStorage kosong. Harap login ulang.");
+            }
         } catch (e) {
-            showToast(e instanceof Error ? e.message : "Terjadi kesalahan", "error");
-        } finally {
-            setIsLoading(false);
+            console.error("Error pas baca data login:", e);
         }
-    };
+    }, []);
 
     const handleJoinClan = async (e: FormEvent) => {
         e.preventDefault();
