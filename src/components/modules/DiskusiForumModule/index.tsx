@@ -3,10 +3,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { getUser, getToken } from "@/lib/auth";
 
-const API_BASE_PATH = "/api/diskusi-forum";
-
-const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
-const REACTIONS_API_BASE_URL = `${API_BASE_PATH}/reactions`;
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") || "https://yomu-gateway-prod.fly.dev";
+const COMMENTS_API_BASE_URL = `${GATEWAY_URL}/api/forum/comments`;
+const REACTIONS_API_BASE_URL = `${GATEWAY_URL}/api/forum/reactions`;
 
 type ReactionType =
   | "UPVOTE"

@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken, getUser } from "@/lib/auth";
 
-const API_BASE_PATH = "/api/diskusi-forum";
-const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") || "https://yomu-gateway-prod.fly.dev";
+const COMMENTS_API_BASE_URL = `${GATEWAY_URL}/api/forum/comments`;
 
 type Reaction = {
   id: string;
@@ -90,7 +90,7 @@ export const DiskusiForumAdminModule = ({
     const endpoints = [
       COMMENTS_API_BASE_URL,
       `${COMMENTS_API_BASE_URL}/all`,
-      `${API_BASE_PATH}/admin/comments`,
+      `${GATEWAY_URL}/api/forum/admin/comments`,
     ];
 
     let lastError = "Gagal mengambil semua komentar";
