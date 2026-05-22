@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { DiskusiForumModule } from "@/components/modules/DiskusiForumModule";
+import { AuthUser, getUser } from "@/lib/auth";
 
 type Category = {
   id: number;
@@ -81,13 +81,8 @@ const estimateReadingTime = (content: string) => {
   return Math.max(1, Math.ceil(words / 180));
 };
 
-const toForumReadingId = (readingId: number) => {
-  const suffix = readingId.toString(16).padStart(12, "0").slice(-12);
-  return `00000000-0000-4000-8000-${suffix}`;
-};
-
 export const BacaanKuisModule = () => {
-  const [activeView, setActiveView] = useState<"learn" | "quiz" | "forum">("learn");
+  const [activeView, setActiveView] = useState<"learn" | "quiz">("learn");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -97,6 +92,7 @@ export const BacaanKuisModule = () => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
 
   const [studentId, setStudentId] = useState("");
+  const [sessionUser, setSessionUser] = useState<AuthUser | null>(null);
   const [selectedReadingId, setSelectedReadingId] = useState("");
   const [readingView, setReadingView] = useState<LearnerReadingResponse | null>(null);
   const [learnerQuestions, setLearnerQuestions] = useState<LearnerQuestion[]>([]);
@@ -120,6 +116,7 @@ export const BacaanKuisModule = () => {
     const readingId = Number(selectedReadingId);
     return readings.find((reading) => reading.id === readingId) ?? null;
   }, [readings, selectedReadingId]);
+  const sessionLabel = sessionUser?.username || sessionUser?.fullName || sessionUser?.email || "Learner";
 
   const answeredCount = useMemo(() => Object.values(learnerAnswers).filter(Boolean).length, [learnerAnswers]);
   const quizProgress = learnerQuestions.length ? Math.round((answeredCount / learnerQuestions.length) * 100) : 0;
@@ -229,6 +226,12 @@ export const BacaanKuisModule = () => {
   };
 
   useEffect(() => {
+    const user = getUser();
+    setSessionUser(user);
+    setStudentId(user?.id ?? "");
+  }, []);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       bootstrapData().catch((error: Error) => {
         setLastError(error.message);
@@ -243,7 +246,7 @@ export const BacaanKuisModule = () => {
   const requireStudentId = () => {
     const value = studentId.trim();
     if (!value) {
-      throw new Error("Student ID wajib diisi.");
+      throw new Error("Sesi login tidak ditemukan. Silakan login ulang.");
     }
     return value;
   };
@@ -397,6 +400,15 @@ export const BacaanKuisModule = () => {
     showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };
 
+  const navigateView = (view: "learn" | "quiz" | "forum") => {
+    if (view === "forum") {
+      window.location.href = "/diskusi-forum";
+      return;
+    }
+
+    setActiveView(view);
+  };
+
 
 
   return (
@@ -420,7 +432,7 @@ export const BacaanKuisModule = () => {
               <button
                 key={view}
                 type="button"
-                onClick={() => setActiveView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
                 className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
                   activeView === view ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10" : "text-slate-600 hover:bg-slate-100"
                 }`}
@@ -450,16 +462,10 @@ export const BacaanKuisModule = () => {
         <main className="min-w-0 flex-1">
           <header className={`${panel} mb-4 flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between`}>
             <div>
-              <p className="text-sm font-bold text-emerald-700">Selamat belajar, {studentId.trim() || "Learner"}</p>
+              <p className="text-sm font-bold text-emerald-700">Selamat belajar, {sessionLabel}</p>
               <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Bacaan dan Kuis</h1>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
-                value={studentId}
-                onChange={(event) => setStudentId(event.target.value)}
-                placeholder="Student ID"
-                className={`${input} sm:w-48`}
-              />
               <button
                 type="button"
                 className={secondary}
@@ -527,7 +533,7 @@ export const BacaanKuisModule = () => {
               <button
                 key={view}
                 type="button"
-                onClick={() => setActiveView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
                 className={`rounded-xl px-3 py-2 text-sm font-bold ${
                   activeView === view ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600"
                 }`}
@@ -845,14 +851,6 @@ export const BacaanKuisModule = () => {
               </aside>
             </section>
           )}
-
-          {activeView === "forum" && (
-            <DiskusiForumModule
-              readingId={selectedReading ? toForumReadingId(selectedReading.id) : undefined}
-              readingTitle={selectedReading?.title}
-            />
-          )}
-
 
         </main>
       </div>
