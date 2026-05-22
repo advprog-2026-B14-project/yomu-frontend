@@ -148,39 +148,7 @@ export const AchievementModule = () => {
 						</div>
 					</div>
 
-					{/* Nav */}
-					<nav className="space-y-2">
-						{[
-							["/bacaan-kuis", "Bacaan", "Read"],
-							["/achievement", "Achievement", "XP"],
-							["/diskusi-forum", "Forum Diskusi", "Forum"],
-							["/interaksi-sosial-liga", "Liga", "Liga"],
-						].map(([href, label, badge]) => {
-							const isActive = href === "/achievement";
-							return (
-								<a
-									key={href}
-									href={href}
-									className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
-										isActive
-											? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10"
-											: "text-slate-600 hover:bg-slate-100"
-									}`}
-								>
-									<span>{label}</span>
-									<span
-										className={`rounded-full px-2 py-0.5 text-[10px] ${
-											isActive
-												? "bg-white/20 text-white"
-												: "bg-slate-100 text-slate-500 group-hover:bg-white"
-										}`}
-									>
-										{badge}
-									</span>
-								</a>
-							);
-						})}
-					</nav>
+
 
 					{/* Level Progress Card (sidebar) */}
 					<div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white">
