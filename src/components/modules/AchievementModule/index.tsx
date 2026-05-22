@@ -5,8 +5,8 @@ import {
   getUserProfile,
   pinAchievement,
   getUnlockedAchievements,
-  getInProgressAchievements,
   getUserDailyMissions,
+  getAllAchievementsWithProgress,
 } from "@/services/achievementService";
 import type {
   PinnedAchievementDto,
@@ -43,7 +43,7 @@ const ACHIEVEMENT_ICONS = ["🏆", "⭐", "🎯", "🔥", "💎", "🚀"] as con
 // ─── Main Module ────────────────────────────────────────────
 
 export const AchievementModule = () => {
-  const [userId, setUserId] = useState("user-123");
+  const [userId, setUserId] = useState("");
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export const AchievementModule = () => {
     AchievementMasterDto[]
   >([]);
   const [missions, setMissions] = useState<UserDailyMissionDto[]>([]);
-  const [inProgressAchievements, setInProgressAchievements] = useState<UserAchievementProgressDto[]>([]);
+  const [masterAchievements, setMasterAchievements] = useState<(AchievementMasterDto & { isUnlocked?: boolean; currentProgress?: number })[]>([]);
 
   const showToast = (
     message: string,
@@ -86,9 +86,9 @@ export const AchievementModule = () => {
     }
   };
 
-  const fetchUnlockedAchievements = async () => {
+  const fetchUnlockedAchievements = async (id: string) => {
     try {
-      const data = await getUnlockedAchievements(userId);
+      const data = await getUnlockedAchievements(id);
       setAvailableAchievements(data || []);
     } catch (err) {
       console.error("Gagal memuat daftar achievement:", err);
@@ -99,20 +99,22 @@ export const AchievementModule = () => {
     try {
       const [miss, achs] = await Promise.all([
         getUserDailyMissions(id),
-        getInProgressAchievements(id),
+        getAllAchievementsWithProgress(id),
       ]);
       setMissions(miss || []);
-      setInProgressAchievements(achs || []);
+      setMasterAchievements(achs || []);
     } catch (err) {
       console.error("Gagal memuat progress data:", err);
     }
   };
 
   useEffect(() => {
+    const authId = typeof window !== "undefined" ? localStorage.getItem("userId") || "UID_FROM_AUTH_SESSION" : "UID_FROM_AUTH_SESSION";
+    setUserId(authId);
     const timer = window.setTimeout(() => {
-      fetchProfile(userId);
-      fetchUnlockedAchievements();
-      fetchProgressData(userId);
+      fetchProfile(authId);
+      fetchUnlockedAchievements(authId);
+      fetchProgressData(authId);
     }, 0);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,7 +249,7 @@ export const AchievementModule = () => {
                 disabled={loading || !userId.trim()}
                 onClick={() => {
                   fetchProfile(userId.trim());
-                  fetchUnlockedAchievements();
+                  fetchUnlockedAchievements(userId.trim());
                   fetchProgressData(userId.trim());
                 }}
               >
@@ -522,13 +524,13 @@ export const AchievementModule = () => {
               )}
             </div>
 
-            {/* Right — On Progress */}
+            {/* Right — Master List */}
             <div className={`${panel} p-5`}>
               <div className="mb-5">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Tracker</p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">On Progress</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Catalog</p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Master Achievements</h2>
                 <p className="mt-1.5 text-sm leading-6 text-slate-500">
-                  Lanjutkan perjuanganmu meraih achievement ini.
+                  Daftar seluruh achievement yang bisa kamu capai.
                 </p>
               </div>
 
@@ -537,30 +539,37 @@ export const AchievementModule = () => {
                   <SkeletonMissionCard />
                   <SkeletonMissionCard />
                 </div>
-              ) : inProgressAchievements.length > 0 ? (
-                <div className="space-y-3">
-                  {inProgressAchievements.map((ach) => {
-                    const percent = Math.min(100, Math.round((ach.currentProgress / ach.milestoneTarget) * 100));
+              ) : masterAchievements.length > 0 ? (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                  {masterAchievements.map((ach) => {
+                    const percent = Math.min(100, Math.round(((ach.currentProgress ?? 0) / ach.milestoneTarget) * 100));
+                    const isLockedAndUnstarted = !ach.isUnlocked && (ach.currentProgress === 0 || ach.currentProgress === undefined);
                     return (
-                      <div key={ach.achievementId} className={`${subtlePanel} p-4 flex flex-col gap-3 transition hover:shadow-md`}>
+                      <div key={ach.id} className={`${subtlePanel} p-4 flex flex-col gap-3 transition hover:shadow-md ${isLockedAndUnstarted ? "opacity-50 grayscale" : ""}`}>
                         <div className="flex justify-between items-start gap-3">
                           <div>
                             <h3 className="text-sm font-black text-slate-900">{ach.nama}</h3>
                             <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{ach.deskripsi}</p>
                           </div>
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase text-slate-500 border border-slate-200 shrink-0">
-                            {ach.currentProgress}/{ach.milestoneTarget}
-                          </span>
+                          {ach.isUnlocked ? (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700 border border-emerald-200 shrink-0">
+                              Unlocked
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase text-slate-500 border border-slate-200 shrink-0">
+                              {ach.currentProgress ?? 0}/{ach.milestoneTarget}
+                            </span>
+                          )}
                         </div>
                         <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                          <div className="h-full transition-all duration-700 bg-emerald-500" style={{ width: `${percent}%` }} />
+                          <div className={`h-full transition-all duration-700 ${ach.isUnlocked ? 'bg-emerald-500' : 'bg-emerald-400'}`} style={{ width: `${percent}%` }} />
                         </div>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <EmptyState title="Tidak ada target" description="Kamu belum memulai achievement apapun." />
+                <EmptyState title="Tidak ada target" description="Katalog achievement kosong." />
               )}
             </div>
           </section>

@@ -111,6 +111,25 @@ export async function getUserDailyMissions(userId: string): Promise<import("@/ty
   return api<import("@/types/achievement").UserDailyMissionDto[]>(`/api/achievements/missions/${encodeURIComponent(userId)}`);
 }
 
+/** COMBINED: getAllAchievementsWithProgress */
+export async function getAllAchievementsWithProgress(userId: string) {
+  const [master, unlocked, progress] = await Promise.all([
+    getAllAchievements(),
+    getUnlockedAchievements(userId),
+    getInProgressAchievements(userId),
+  ]);
+
+  return master.map((ach) => {
+    const isUnlocked = unlocked.some((u) => u.id === ach.id);
+    const prog = progress.find((p) => p.achievementId === ach.id);
+    return {
+      ...ach,
+      isUnlocked,
+      currentProgress: isUnlocked ? ach.milestoneTarget : prog?.currentProgress ?? 0,
+    };
+  });
+}
+
 // ─── Admin Master Data API ──────────────────────────────────
 
 /** GET /api/admin/master/achievements */
