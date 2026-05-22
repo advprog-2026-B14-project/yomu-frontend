@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type MouseEvent, useEffect, useState } from "react";
 import { AuthUser, getUser, logout, getToken } from "@/lib/auth";
+
+const ACTIVE_READING_STORAGE_KEY = "yomu.bacaanKuis.activeReading";
+const SAVED_READING_STORAGE_KEY = "yomu.bacaanKuis.savedReading";
+const QUIZ_LOCK_STORAGE_KEY = "yomu.bacaanKuis.quizStarted";
 
 export const NavbarModule = () => {
   const pathname = usePathname();
@@ -32,6 +36,31 @@ export const NavbarModule = () => {
     { name: "Liga", path: "/interaksi-sosial-liga" },
   ];
 
+  const handleNavigation = (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => {
+    if (!pathname?.startsWith("/bacaan-kuis") || targetPath === "/bacaan-kuis") {
+      return;
+    }
+
+    if (window.localStorage.getItem(QUIZ_LOCK_STORAGE_KEY) === "true") {
+      event.preventDefault();
+      window.alert("Quiz sedang berlangsung. Selesaikan atau submit quiz dulu sebelum pindah halaman.");
+      return;
+    }
+
+    const activeReading = window.localStorage.getItem(ACTIVE_READING_STORAGE_KEY);
+    if (!activeReading) {
+      window.localStorage.removeItem(SAVED_READING_STORAGE_KEY);
+      return;
+    }
+
+    const shouldSave = window.confirm("Apakah Anda ingin menyimpan bacaan terakhir sebelum pindah halaman?");
+    if (shouldSave) {
+      window.localStorage.setItem(SAVED_READING_STORAGE_KEY, activeReading);
+    } else {
+      window.localStorage.removeItem(SAVED_READING_STORAGE_KEY);
+    }
+  };
+
   const handleLogout = async () => {
     const token = getToken();
     if (token) {
@@ -56,7 +85,7 @@ export const NavbarModule = () => {
     <header className="sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/80 backdrop-blur-md shadow-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2" onClick={(event) => handleNavigation(event, "/")}>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-700 text-lg font-black text-white">
               Y
             </div>
@@ -71,6 +100,7 @@ export const NavbarModule = () => {
                 <Link
                   key={item.path}
                   href={item.path}
+                  onClick={(event) => handleNavigation(event, item.path)}
                   className={`text-sm font-bold transition-colors ${
                     isActive
                       ? "text-emerald-700"
