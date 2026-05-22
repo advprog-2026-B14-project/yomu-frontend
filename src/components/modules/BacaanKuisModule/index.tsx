@@ -82,6 +82,7 @@ const danger =
   "rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300";
 
 const optionKeys = ["A", "B", "C", "D"] as const;
+const XP_PER_LEVEL = 1000;
 
 const estimateReadingTime = (content: string) => {
   const words = content.trim().split(/\s+/).filter(Boolean).length;
@@ -141,8 +142,9 @@ export const BacaanKuisModule = () => {
   const scoreSummary = score === null ? "-" : scoreIsPercentage ? `${score}%` : `${score}/${learnerQuestions.length}`;
   const achievementLevel = achievementProfile?.level ?? null;
   const achievementTotalPoints = achievementProfile?.totalPoints ?? 0;
-  const achievementLevelProgress = achievementLevel === null ? 0 : achievementTotalPoints % 100;
-  const achievementXpToNext = achievementLevel === null ? null : 100 - achievementLevelProgress;
+  const achievementLevelProgress =
+    achievementLevel === null ? 0 : Math.min(100, ((achievementTotalPoints % XP_PER_LEVEL) / XP_PER_LEVEL) * 100);
+  const achievementXpToNext = achievementLevel === null ? null : XP_PER_LEVEL - (achievementTotalPoints % XP_PER_LEVEL);
   const totalQuestionsForSelectedReading = selectedReading
     ? quizzes.filter((quiz) => quiz.readingId === selectedReading.id).length
     : 0;
