@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { DiskusiForumModule } from "@/components/modules/DiskusiForumModule";
 import { AuthUser, getUser } from "@/lib/auth";
 
@@ -82,6 +82,7 @@ const danger =
   "rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300";
 
 const optionKeys = ["A", "B", "C", "D"] as const;
+const XP_PER_LEVEL = 1000;
 
 const estimateReadingTime = (content: string) => {
   const words = content.trim().split(/\s+/).filter(Boolean).length;
@@ -120,6 +121,8 @@ export const BacaanKuisModule = () => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const reportedReadingProgressIds = useRef(new Set<number>());
+  const reportedQuizProgressIds = useRef(new Set<number>());
 
 
 
@@ -141,8 +144,9 @@ export const BacaanKuisModule = () => {
   const scoreSummary = score === null ? "-" : scoreIsPercentage ? `${score}%` : `${score}/${learnerQuestions.length}`;
   const achievementLevel = achievementProfile?.level ?? null;
   const achievementTotalPoints = achievementProfile?.totalPoints ?? 0;
-  const achievementLevelProgress = achievementLevel === null ? 0 : achievementTotalPoints % 100;
-  const achievementXpToNext = achievementLevel === null ? null : 100 - achievementLevelProgress;
+  const achievementLevelProgress =
+    achievementLevel === null ? 0 : Math.min(100, ((achievementTotalPoints % XP_PER_LEVEL) / XP_PER_LEVEL) * 100);
+  const achievementXpToNext = achievementLevel === null ? null : XP_PER_LEVEL - (achievementTotalPoints % XP_PER_LEVEL);
   const totalQuestionsForSelectedReading = selectedReading
     ? quizzes.filter((quiz) => quiz.readingId === selectedReading.id).length
     : 0;
@@ -346,6 +350,30 @@ export const BacaanKuisModule = () => {
     }
   };
 
+  const syncAchievementProgress = async (sid: string, type: "BACA" | "KUIS") => {
+    if (!sid) return false;
+
+    try {
+      const response = await fetch("/api/achievements/update-progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ userId: sid, type }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `HTTP ${response.status}`);
+      }
+
+      setAchievementProfileError(null);
+      return true;
+    } catch (error) {
+      setAchievementProfileError(error instanceof Error ? error.message : "Gagal sinkron progres Achievement.");
+      return false;
+    }
+  };
+
   const loadLearnerReading = async () => {
     const sid = requireStudentId();
     const readingId = getSelectedReadingNumber();
@@ -362,6 +390,12 @@ export const BacaanKuisModule = () => {
     setScore(null);
     setActiveView("learn");
     await fetchLeagueStatistics(sid);
+    if (!reportedReadingProgressIds.current.has(readingId)) {
+      const synced = await syncAchievementProgress(sid, "BACA");
+      if (synced) {
+        reportedReadingProgressIds.current.add(readingId);
+      }
+    }
     await fetchAchievementProfile(sid);
     showToast("Bacaan berhasil dimuat");
   };
@@ -445,6 +479,12 @@ export const BacaanKuisModule = () => {
     setQuizStarted(false);
     setCurrentQuestion(0);
     await fetchLeagueStatistics(sid);
+    if (!reportedQuizProgressIds.current.has(readingId)) {
+      const synced = await syncAchievementProgress(sid, "KUIS");
+      if (synced) {
+        reportedQuizProgressIds.current.add(readingId);
+      }
+    }
     await fetchAchievementProfile(sid);
     showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };

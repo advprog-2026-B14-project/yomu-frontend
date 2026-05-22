@@ -10,6 +10,8 @@ type ClanMember = {
     name: string;
     role: string; // "Ketua" | "Member"
     score: number;
+    level?: number;
+    pinnedAchievements?: { icon: string; title: string }[];
 };
 
 type Clan = {
@@ -19,7 +21,7 @@ type Clan = {
     totalSkor: number;
     hasProductivityBuff?: boolean;
     hasLowAccuracyDebuff?: boolean;
-    members?: ClanMember[]; // Tambahan array anggota buat di halaman Klan Saya
+    members?: ClanMember[]; // Array anggota buat di halaman Klan Saya
 };
 
 // ─── TIER CONFIG ───────────────────────────────────────────────────────────────
@@ -207,13 +209,13 @@ export const InteraksiSosialLigaModule = () => {
 
             // LOGIKA MOCK: Ubah status MyClan jadi klan yang baru dibuat (sebagai Ketua)
             setMyClan({
-                id: "kln-baru-" + Math.floor(Math.random() * 1000), // ID Sementara
+                id: "kln-baru-" + Math.floor(Math.random() * 1000),
                 namaClan: newClanName,
-                tier: "BRONZE", // Default tier
+                tier: "BRONZE",
                 totalSkor: 0,
                 members: [{ userId: studentId, name: studentName, role: "Ketua", score: 0 }]
             });
-            setActiveView("clan"); // Langsung pindah ke halaman klan
+            setActiveView("clan");
 
             setNewClanName("");
             fetchLeaderboard();
@@ -448,7 +450,7 @@ export const InteraksiSosialLigaModule = () => {
 
                                 {/* Stats Grid */}
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                                    <StatCard label="Jumlah Anggota" value={`${(myClan as any).memberCount || 0} Orang`} tone="emerald" />
+                                    <StatCard label="Jumlah Anggota" value={`${(myClan as any).memberCount || (myClan.members?.length ?? 0)} Orang`} tone="emerald" />
                                     <StatCard label="Total Skor Klan" value={(myClan.totalSkor || 0).toLocaleString()} tone="amber" />
                                 </div>
 
@@ -458,6 +460,64 @@ export const InteraksiSosialLigaModule = () => {
                                         Terus kumpulkan skor individu untuk membantu klanmu naik ke tier selanjutnya!
                                     </p>
                                 </div>
+
+                                {/* ── DAFTAR ANGGOTA SECTION ── */}
+                                <div style={{ marginTop: 32 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16 }}>
+                                        <div>
+                                            <h3 style={{ fontSize: 18, fontWeight: 900, margin: 0, color: "#0f172a" }}>Anggota Klan</h3>
+                                            <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Kontribusi poin di season ini</div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                        {myClan.members?.map((member, idx) => (
+                                            <div key={member.userId || idx} style={{
+                                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                                                padding: "16px 20px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12,
+                                                transition: "all 0.2s"
+                                            }}>
+
+                                                {/* 1. SISI KIRI (Identitas & Role) */}
+                                                <div style={{ display: "flex", alignItems: "center", gap: 16, width: "30%" }}>
+                                                    <div style={{
+                                                        width: 42, height: 42, borderRadius: "50%", background: "#e2e8f0",
+                                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                                        fontSize: 16, fontWeight: 800, color: "#475569"
+                                                    }}>
+                                                        {member.name ? member.name.charAt(0).toUpperCase() : "?"}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>{member.name}</div>
+                                                        <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4, color: member.role === "Ketua" ? "#d97706" : "#64748b" }}>
+                                                            {member.role === "Ketua" ? "👑 Ketua Klan" : "👤 Anggota"}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* 2. SISI TENGAH (Showcase Achievement) */}
+                                                <div style={{ display: "flex", gap: 8, flex: 1, justifyContent: "center" }}>
+                                                    {/* MOCKUP: Nanti diganti pake data member.pinnedAchievements dari API */}
+                                                    <div title="Penakluk Kuis" style={{ width: 32, height: 32, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, cursor: "help" }}>🔥</div>
+                                                    <div title="Rajin Membaca" style={{ width: 32, height: 32, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, cursor: "help" }}>📚</div>
+                                                    <div title="Top Global" style={{ width: 32, height: 32, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, cursor: "help" }}>🏆</div>
+                                                </div>
+
+                                                {/* 3. SISI KANAN (Skor & Kontribusi) */}
+                                                <div style={{ width: "30%", textAlign: "right" }}>
+                                                    <div style={{ fontSize: 18, fontWeight: 900, color: "#059669", letterSpacing: "-0.02em" }}>
+                                                        +{member.score?.toLocaleString() || 0}
+                                                    </div>
+                                                    <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>
+                                                        Skor Season Ini
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
                             </div>
                         ) : (
                             // HALAMAN BUAT / GABUNG KLAN (Kalau belum punya klan)

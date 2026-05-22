@@ -45,6 +45,7 @@ const ACHIEVEMENT_ICONS = ["🏆", "⭐", "🎯", "🔥", "💎", "🚀"] as con
 
 export const AchievementModule = () => {
   const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("Learner");
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +114,7 @@ export const AchievementModule = () => {
     const authUser = typeof window !== "undefined" ? getUser() : null;
     const authId = authUser?.id || "";
     setUserId(authId);
+    setUserName(authUser?.fullName || authUser?.username || authId || "Learner");
     
     if (authId) {
       const timer = window.setTimeout(() => {
@@ -204,7 +206,7 @@ export const AchievementModule = () => {
 					>
 						<div>
 							<p className="text-sm font-bold text-emerald-700">
-								Selamat belajar, {userId.trim() || "Learner"}
+								Selamat belajar, {userName}
 							</p>
 							<h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">
 								Achievement &amp; Gamification
