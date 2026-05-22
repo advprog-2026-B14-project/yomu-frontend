@@ -142,6 +142,12 @@ export default function ProfilePage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwdMsg({ type: "", text: "" });
+
+    if (pwdFormData.oldPassword === pwdFormData.newPassword) {
+      setPwdMsg({ type: "error", text: "Password baru tidak boleh sama dengan password lama." });
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -157,6 +163,20 @@ export default function ProfilePage() {
 
       if (!res.ok) {
         const errText = await res.text();
+        // Parse Supabase ugly error JSON inside the string if it exists
+        if (errText.includes("same_password") || errText.includes("different from the old password")) {
+          throw new Error("Password baru tidak boleh sama dengan password lama.");
+        }
+        
+        try {
+          const match = errText.match(/\{.*\}/);
+          if (match) {
+            const parsed = JSON.parse(match[0]);
+            if (parsed.msg) throw new Error(parsed.msg);
+          }
+        } catch (e) {
+          // ignore parsing error
+        }
         throw new Error(errText || "Gagal mengubah password");
       }
 
