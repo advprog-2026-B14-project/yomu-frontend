@@ -13,7 +13,6 @@ import {
 } from "@/services/achievementService";
 import type { AchievementMasterDto, DailyMissionMasterDto } from "@/types/achievement";
 
-// ─── Design Tokens ────────────────────────────────────────────
 const shell = "w-full text-slate-900";
 const panel =
   "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur";
@@ -33,12 +32,10 @@ type Tab = "ACHIEVEMENTS" | "MISSIONS";
 export const AchievementAdminModule = () => {
   const [activeTab, setActiveTab] = useState<Tab>("ACHIEVEMENTS");
 
-  // Data States
   const [achievements, setAchievements] = useState<AchievementMasterDto[]>([]);
   const [missions, setMissions] = useState<DailyMissionMasterDto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal States
   const [showAchModal, setShowAchModal] = useState(false);
   const [editAch, setEditAch] = useState<AchievementMasterDto | null>(null);
 
@@ -73,7 +70,6 @@ export const AchievementAdminModule = () => {
     fetchData();
   }, [activeTab]);
 
-  // Handlers for Achievements
   const handleSaveAchievement = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -112,7 +108,6 @@ export const AchievementAdminModule = () => {
     }
   };
 
-  // Handlers for Missions
   const handleSaveMission = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);

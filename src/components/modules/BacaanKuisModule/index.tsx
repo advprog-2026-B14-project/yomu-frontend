@@ -240,7 +240,6 @@ export const BacaanKuisModule = () => {
     }, 0);
 
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const requireStudentId = () => {
@@ -929,7 +928,6 @@ const ForumView = ({ studentId, apiBase }: { studentId: string; apiBase: string 
 
   useEffect(() => {
     loadPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submitPost = async (event: FormEvent<HTMLFormElement>) => {
@@ -1085,7 +1083,6 @@ const ForumReplies = ({
       const data = await forumApi<Reply[]>(`/api/forum/posts/${postId}/replies`);
       setReplies(data ?? []);
     } catch {
-      // balasan kosong jika API belum siap
     } finally {
       setLoading(false);
     }
@@ -1095,7 +1092,6 @@ const ForumReplies = ({
     setReplies([]);
     setReplyText("");
     loadReplies();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
   const submitReply = async (e: FormEvent<HTMLFormElement>) => {
@@ -1110,7 +1106,6 @@ const ForumReplies = ({
       setReplyText("");
       await loadReplies();
     } catch {
-      // silent
     } finally {
       setSubmitting(false);
     }
@@ -1434,7 +1429,6 @@ const splitTableRow = (line: string) =>
 
 const renderInline = (text: string): ReactNode[] => {
   const nodes: ReactNode[] = [];
-  // Order matters: ==highlight== before *italic*, ** before *
   const pattern = /(\*\*[^*]+\*\*|==([^=]+)==|`[^`]+`|\*([^*]+)\*)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;

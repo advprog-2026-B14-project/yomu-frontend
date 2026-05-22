@@ -92,7 +92,6 @@ export const LoginModule = () => {
             }
           }
         } catch {
-          // jika respons tidak dapat diparsing, gunakan pesan umum
         }
 
         setErrorMessage(message);
@@ -245,7 +244,6 @@ export const RegisterModule = () => {
             message = data.message;
           }
         } catch {
-          // Jika respons bukan JSON, tetap gunakan pesan fallback
         }
 
         if (message.toLowerCase().includes("env") || message.toLowerCase().includes("database")) {

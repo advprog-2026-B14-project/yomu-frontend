@@ -17,7 +17,6 @@ import type {
 } from "@/types/achievement";
 import { getUser } from "@/lib/auth";
 
-// ─── Design‑system tokens (identical to BacaanKuisModule) ───
 
 const shell =
   "min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)] text-slate-900";
@@ -37,11 +36,9 @@ const primary =
 const secondary =
   "rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:translate-y-0 disabled:cursor-not-allowed disabled:text-slate-400";
 
-// ─── Achievement badge icons ────────────────────────────────
 
 const ACHIEVEMENT_ICONS = ["🏆", "⭐", "🎯", "🔥", "💎", "🚀"] as const;
 
-// ─── Main Module ────────────────────────────────────────────
 
 export const AchievementModule = () => {
   const [userId, setUserId] = useState("");
@@ -127,7 +124,6 @@ export const AchievementModule = () => {
       setLoading(false);
       setError("Silakan login terlebih dahulu untuk melihat Achievement.");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pinnedCount = profile?.pinnedAchievements?.length ?? 0;
@@ -136,7 +132,6 @@ export const AchievementModule = () => {
     : 0;
   const xpToNext = profile ? 1000 - (profile.totalPoints % 1000) : 0;
 
-  // ── Render ──
 
   return (
 		<div className={shell}>
@@ -711,7 +706,6 @@ export const AchievementModule = () => {
 	);
 };
 
-// ─── Sub-Components ─────────────────────────────────────────
 
 /** Stat card matching the BacaanKuisModule design exactly. */
 const StatCard = ({

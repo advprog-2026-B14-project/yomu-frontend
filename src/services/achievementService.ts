@@ -35,7 +35,6 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
-      // Read as text first to avoid "body stream already read" error
       const bodyText = await response.text();
       if (bodyText) {
         try {
@@ -48,7 +47,6 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
         }
       }
     } catch {
-      // If even .text() fails, keep the default HTTP status message
     }
     throw new Error(message);
   }
@@ -62,7 +60,6 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
 		return null as T;
 	}
 
-	// Coba parse sebagai JSON. Kalau gagal karena plain text, kembalikan teks aslinya.
 	try {
 		return JSON.parse(bodyText) as T;
 	} catch {
@@ -70,7 +67,6 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
 	}
 }
 
-// ─── Public API ──────────────────────────────────────────────
 
 /** GET /api/achievements/profile/{userId} */
 export async function getUserProfile(
@@ -130,7 +126,6 @@ export async function getAllAchievementsWithProgress(userId: string) {
   });
 }
 
-// ─── Admin Master Data API ──────────────────────────────────
 
 /** GET /api/admin/master/achievements */
 export async function getAdminAchievements(): Promise<AchievementMasterDto[]> {

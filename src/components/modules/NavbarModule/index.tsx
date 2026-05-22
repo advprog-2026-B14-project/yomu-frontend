@@ -13,7 +13,6 @@ export const NavbarModule = () => {
     setUser(getUser());
   }, [pathname]); // Re-check when route changes
 
-  // Hide navbar on admin, auth, and callback routes
   if (
     pathname?.startsWith("/admin") ||
     pathname?.startsWith("/login") ||

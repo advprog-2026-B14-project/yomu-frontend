@@ -4,7 +4,6 @@ import { useState, useEffect, FormEvent } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "http://localhost:8084";
 
-// --- TYPESCRIPT DEFINITIONS ---
 type ClanMember = {
     userId: string;
     name: string;
@@ -22,7 +21,6 @@ type Clan = {
     members?: ClanMember[]; // Tambahan array anggota buat di halaman Klan Saya
 };
 
-// ─── TIER CONFIG ───────────────────────────────────────────────────────────────
 const TIER_CONFIG: Record<string, {
     label: string;
     icon: string;
@@ -124,10 +122,8 @@ const getTierConfig = (tier: string) => {
     return DEFAULT_TIER;
 };
 
-// ─── RANK MEDALS ───────────────────────────────────────────────────────────────
 const MEDAL_EMOJI = ["🥇", "🥈", "🥉"];
 
-// ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export const InteraksiSosialLigaModule = () => {
     const [activeView, setActiveView] = useState<"leaderboard" | "clan">("leaderboard");
     const [studentId, setStudentId] = useState("");
@@ -205,7 +201,6 @@ export const InteraksiSosialLigaModule = () => {
 
             showToast("Klan berhasil dibuat!", "success");
 
-            // LOGIKA MOCK: Ubah status MyClan jadi klan yang baru dibuat (sebagai Ketua)
             setMyClan({
                 id: "kln-baru-" + Math.floor(Math.random() * 1000), // ID Sementara
                 namaClan: newClanName,
@@ -239,7 +234,6 @@ export const InteraksiSosialLigaModule = () => {
 
             showToast("Berhasil bergabung!", "success");
 
-            // LOGIKA MOCK: Update UI jadi member klan
             setMyClan({
                 id: joinClanId,
                 namaClan: "Klan Baru (Refresh untuk nama asli)",
@@ -275,7 +269,6 @@ export const InteraksiSosialLigaModule = () => {
 
             showToast("Berhasil bergabung!", "success");
 
-            // LOGIKA MOCK: Langsung nge-set state biar ga usah nunggu API
             setMyClan({
                 id: targetClanId,
                 namaClan: targetClanName,
@@ -296,7 +289,6 @@ export const InteraksiSosialLigaModule = () => {
         }
     };
 
-    // ── JSX ──────────────────────────────────────────────────────────────────
     return (
         <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Inter', system-ui, sans-serif", color: "#0f172a" }}>
             <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", gap: 24, padding: "24px 20px", minHeight: "100vh" }}>
@@ -460,7 +452,6 @@ export const InteraksiSosialLigaModule = () => {
                                 </div>
                             </div>
                         ) : (
-                            // HALAMAN BUAT / GABUNG KLAN (Kalau belum punya klan)
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                                 {/* Buat Klan */}
                                 <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 24 }}>
@@ -526,8 +517,6 @@ export const InteraksiSosialLigaModule = () => {
     );
 };
 
-// ─── TIER SECTION ──────────────────────────────────────────────────────────────
-// Simple stat card used in Clan dashboard
 const StatCard = ({ label, value, tone }: { label: string; value: string; tone: "emerald" | "amber" | "purple" }) => {
     const colors: Record<string, string> = {
         emerald: "#059669",
@@ -573,7 +562,6 @@ const TierSection = ({ tierName, clans, cfg, myClanId, onJoin, isLoading }: {
                 const rank = idx + 1;
                 const isMe = myClanId === clan.id;
 
-                // HIGHLIGHT LOGIC: Kalau klan sendiri, kasih background emerald muda dan border hijau
                 const baseBg = rank === 1 ? cfg.rowTop : rank === 2 ? cfg.rowSub : "#fff";
                 const rowBg = isMe ? "#ecfdf5" : baseBg;
                 const highlightBorder = isMe ? "inset 4px 0 0 #10b981" : "none";

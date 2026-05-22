@@ -9,7 +9,6 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      // Supabase-js automatically parses the URL hash and sets the session
       const { data, error } = await supabase.auth.getSession();
 
       if (error) {
@@ -41,7 +40,6 @@ export default function AuthCallbackPage() {
               username: userData.username,
             };
 
-            // Import saveAuth di atas file
             const { saveAuth } = await import("@/lib/auth");
             saveAuth(token, authUser);
 
