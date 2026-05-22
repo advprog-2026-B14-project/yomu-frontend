@@ -14,8 +14,7 @@ import {
 import type { AchievementMasterDto, DailyMissionMasterDto } from "@/types/achievement";
 
 // ─── Design Tokens ────────────────────────────────────────────
-const shell =
-  "min-h-screen bg-[radial-gradient(circle_at_top_left,#ccfbf1_0,#ffffff_30%,#f8fafc_72%)] text-slate-900";
+const shell = "w-full text-slate-900";
 const panel =
   "rounded-2xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur";
 const subtlePanel =
@@ -31,7 +30,7 @@ const dangerBtn =
 
 type Tab = "ACHIEVEMENTS" | "MISSIONS";
 
-export default function AdminGamificationPage() {
+export const AchievementAdminModule = () => {
   const [activeTab, setActiveTab] = useState<Tab>("ACHIEVEMENTS");
 
   // Data States
@@ -151,24 +150,23 @@ export default function AdminGamificationPage() {
   };
 
   return (
-    <div className={shell}>
-      <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className={`${shell} p-6 md:p-10 max-w-7xl mx-auto`}>
         <header className={`${panel} mb-6 flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between`}>
           <div>
-            <p className="text-sm font-bold text-emerald-700">Admin Dashboard</p>
-            <h1 className="text-3xl font-black tracking-tight text-slate-950">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Yomu Admin</p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">
               Master Data Gamification
             </h1>
           </div>
           <div className="flex gap-2 bg-slate-100 p-1 rounded-xl">
             <button
-              className={`px-4 py-2 text-sm font-bold rounded-lg transition ${activeTab === "ACHIEVEMENTS" ? "bg-white text-emerald-700 shadow" : "text-slate-500"}`}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition ${activeTab === "ACHIEVEMENTS" ? "bg-white text-emerald-700 shadow" : "text-slate-500 hover:text-slate-700"}`}
               onClick={() => setActiveTab("ACHIEVEMENTS")}
             >
               Achievements
             </button>
             <button
-              className={`px-4 py-2 text-sm font-bold rounded-lg transition ${activeTab === "MISSIONS" ? "bg-white text-emerald-700 shadow" : "text-slate-500"}`}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition ${activeTab === "MISSIONS" ? "bg-white text-emerald-700 shadow" : "text-slate-500 hover:text-slate-700"}`}
               onClick={() => setActiveTab("MISSIONS")}
             >
               Daily Missions
@@ -177,9 +175,9 @@ export default function AdminGamificationPage() {
         </header>
 
         {activeTab === "ACHIEVEMENTS" ? (
-          <div className={`${panel} p-6`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold">Master Achievements</h2>
+          <div className={`${panel} overflow-hidden`}>
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900">Daftar Achievements</h2>
               <button
                 className={primary}
                 onClick={() => { setEditAch(null); setShowAchModal(true); }}
@@ -187,28 +185,34 @@ export default function AdminGamificationPage() {
                 + Add Achievement
               </button>
             </div>
-            {loading ? <p>Loading...</p> : (
+            {loading ? <p className="p-8 text-center text-slate-500">Loading...</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500">
+                  <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-4 py-3 font-bold">Nama</th>
-                      <th className="px-4 py-3 font-bold">Type</th>
-                      <th className="px-4 py-3 font-bold">Target</th>
-                      <th className="px-4 py-3 font-bold">Poin</th>
-                      <th className="px-4 py-3 font-bold text-right">Actions</th>
+                      <th className="px-6 py-4">Nama</th>
+                      <th className="px-6 py-4">Type</th>
+                      <th className="px-6 py-4">Target</th>
+                      <th className="px-6 py-4">Poin</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {achievements.map((ach) => (
+                    {achievements.length === 0 ? (
+                        <tr>
+                            <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                                Tidak ada data achievement
+                            </td>
+                        </tr>
+                    ) : achievements.map((ach) => (
                       <tr key={ach.id} className="hover:bg-slate-50 transition">
-                        <td className="px-4 py-3 font-bold">{ach.nama}</td>
-                        <td className="px-4 py-3">{ach.milestoneType}</td>
-                        <td className="px-4 py-3">{ach.milestoneTarget}</td>
-                        <td className="px-4 py-3">{ach.poinReward} XP</td>
-                        <td className="px-4 py-3 text-right flex justify-end gap-2">
+                        <td className="px-6 py-4 font-bold text-slate-900">{ach.nama}</td>
+                        <td className="px-6 py-4 text-slate-600 font-medium">{ach.milestoneType}</td>
+                        <td className="px-6 py-4 text-slate-600">{ach.milestoneTarget}</td>
+                        <td className="px-6 py-4 text-emerald-600 font-bold">{ach.poinReward} XP</td>
+                        <td className="px-6 py-4 text-right flex justify-end gap-2">
                           <button
-                            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
                             onClick={() => { setEditAch(ach); setShowAchModal(true); }}
                           >
                             Edit
@@ -228,9 +232,9 @@ export default function AdminGamificationPage() {
             )}
           </div>
         ) : (
-          <div className={`${panel} p-6`}>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold">Master Daily Missions</h2>
+          <div className={`${panel} overflow-hidden`}>
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900">Daftar Daily Missions</h2>
               <button
                 className={primary}
                 onClick={() => { setEditMis(null); setShowMisModal(true); }}
@@ -238,26 +242,32 @@ export default function AdminGamificationPage() {
                 + Add Mission
               </button>
             </div>
-            {loading ? <p>Loading...</p> : (
+            {loading ? <p className="p-8 text-center text-slate-500">Loading...</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500">
+                  <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-4 py-3 font-bold">Nama Misi</th>
-                      <th className="px-4 py-3 font-bold">Target</th>
-                      <th className="px-4 py-3 font-bold">Poin</th>
-                      <th className="px-4 py-3 font-bold text-right">Actions</th>
+                      <th className="px-6 py-4">Nama Misi</th>
+                      <th className="px-6 py-4">Target</th>
+                      <th className="px-6 py-4">Poin</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {missions.map((mis) => (
+                    {missions.length === 0 ? (
+                        <tr>
+                            <td colSpan={4} className="py-12 text-center text-slate-400 font-medium">
+                                Tidak ada data misi harian
+                            </td>
+                        </tr>
+                    ) : missions.map((mis) => (
                       <tr key={mis.id} className="hover:bg-slate-50 transition">
-                        <td className="px-4 py-3 font-bold">{mis.namaMisi}</td>
-                        <td className="px-4 py-3">{mis.milestoneTarget}</td>
-                        <td className="px-4 py-3">{mis.poinReward} XP</td>
-                        <td className="px-4 py-3 text-right flex justify-end gap-2">
+                        <td className="px-6 py-4 font-bold text-slate-900">{mis.namaMisi}</td>
+                        <td className="px-6 py-4 text-slate-600">{mis.milestoneTarget}</td>
+                        <td className="px-6 py-4 text-emerald-600 font-bold">{mis.poinReward} XP</td>
+                        <td className="px-6 py-4 text-right flex justify-end gap-2">
                           <button
-                            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                            className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
                             onClick={() => { setEditMis(mis); setShowMisModal(true); }}
                           >
                             Edit
@@ -280,30 +290,30 @@ export default function AdminGamificationPage() {
 
         {/* Achievement Modal */}
         {showAchModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
             <div className={`${panel} w-full max-w-md p-6 max-h-[90vh] overflow-y-auto`}>
-              <h3 className="text-xl font-black mb-4">{editAch ? "Edit" : "Add"} Achievement</h3>
+              <h3 className="text-xl font-black text-slate-950 mb-5">{editAch ? "Edit" : "Add"} Achievement</h3>
               <form onSubmit={handleSaveAchievement} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 mb-1 block">Nama</label>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Nama</label>
                   <input name="nama" defaultValue={editAch?.nama} required className={inputClass} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 mb-1 block">Deskripsi</label>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Deskripsi</label>
                   <textarea name="deskripsi" defaultValue={editAch?.deskripsi} required className={inputClass} rows={2} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 mb-1 block">Milestone Target</label>
+                    <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Milestone Target</label>
                     <input name="milestoneTarget" type="number" defaultValue={editAch?.milestoneTarget || 1} required className={inputClass} />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 mb-1 block">Poin Reward</label>
+                    <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Poin Reward</label>
                     <input name="poinReward" type="number" defaultValue={editAch?.poinReward || 100} required className={inputClass} />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 mb-1 block">Milestone Type</label>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Milestone Type</label>
                   <select name="milestoneType" defaultValue={editAch?.milestoneType || "STREAK"} required className={inputClass}>
                     <option value="BACA">BACA</option>
                     <option value="FORUM">FORUM</option>
@@ -315,12 +325,12 @@ export default function AdminGamificationPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 mb-1 block">Badge URL</label>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Badge URL</label>
                   <input name="badgeUrl" defaultValue={editAch?.badgeUrl || ""} className={inputClass} />
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <button type="button" onClick={() => setShowAchModal(false)} className={secondary}>Cancel</button>
-                  <button type="submit" className={primary}>Save</button>
+                <div className="flex justify-end gap-3 pt-5">
+                  <button type="button" onClick={() => setShowAchModal(false)} className="px-4 py-2.5 text-sm font-bold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition">Batal</button>
+                  <button type="submit" className={primary}>Simpan</button>
                 </div>
               </form>
             </div>
@@ -329,26 +339,26 @@ export default function AdminGamificationPage() {
 
         {/* Mission Modal */}
         {showMisModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
             <div className={`${panel} w-full max-w-md p-6`}>
-              <h3 className="text-xl font-black mb-4">{editMis ? "Edit" : "Add"} Mission</h3>
+              <h3 className="text-xl font-black text-slate-950 mb-5">{editMis ? "Edit" : "Add"} Mission</h3>
               <form onSubmit={handleSaveMission} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 mb-1 block">Nama Misi</label>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Nama Misi</label>
                   <input name="namaMisi" defaultValue={editMis?.namaMisi} required className={inputClass} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 mb-1 block">Milestone Target</label>
+                    <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Milestone Target</label>
                     <input name="milestoneTarget" type="number" defaultValue={editMis?.milestoneTarget || 1} required className={inputClass} />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 mb-1 block">Poin Reward</label>
+                    <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Poin Reward</label>
                     <input name="poinReward" type="number" defaultValue={editMis?.poinReward || 50} required className={inputClass} />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-500 mb-1 block">Milestone Type</label>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wider">Milestone Type</label>
                   <select name="milestoneType" defaultValue={editMis?.milestoneType || "STREAK"} required className={inputClass}>
                     <option value="BACA">BACA</option>
                     <option value="FORUM">FORUM</option>
@@ -359,9 +369,9 @@ export default function AdminGamificationPage() {
                     <option value="GENERAL">GENERAL</option>
                   </select>
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <button type="button" onClick={() => setShowMisModal(false)} className={secondary}>Cancel</button>
-                  <button type="submit" className={primary}>Save</button>
+                <div className="flex justify-end gap-3 pt-5">
+                  <button type="button" onClick={() => setShowMisModal(false)} className="px-4 py-2.5 text-sm font-bold border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition">Batal</button>
+                  <button type="submit" className={primary}>Simpan</button>
                 </div>
               </form>
             </div>
@@ -370,11 +380,10 @@ export default function AdminGamificationPage() {
 
         {/* Toast */}
         {toast && (
-          <div className={`fixed bottom-4 right-4 z-50 rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-2xl ${toast.type === "error" ? "bg-rose-700" : "bg-emerald-700"}`}>
+          <div className={`fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-sm font-bold shadow-lg transition-all ${toast.type === "error" ? "bg-rose-50 border border-rose-200 text-rose-800" : "bg-emerald-50 border border-emerald-200 text-emerald-800"}`}>
             {toast.message}
           </div>
         )}
-      </div>
     </div>
   );
-}
+};
