@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { getUser } from "@/lib/auth";
 
 const API_BASE_PATH = "/api/diskusi-forum";
 
@@ -29,13 +28,10 @@ type CommentItem = {
   content: string;
   parentCommentId?: string | null;
   readingId?: string;
-  userId?: string;
-  authorName?: string;
-  createdAt?: string;
   reactions?: Reaction[];
 };
 
-type DiskusiForumModuleProps = {
+type DiskusiForumAdminModuleProps = {
   readingId?: string;
   readingTitle?: string;
   className?: string;
@@ -60,27 +56,18 @@ const REACTION_OPTIONS: Array<{
   emoji: string;
   type: ReactionType;
 }> = [
-  { emoji: "🔥", type: "EMOJI_HEART" },
-  { emoji: "🚀", type: "EMOJI_THUMBS_UP" },
-  { emoji: "😂", type: "EMOJI_LAUGH" },
-  { emoji: "🎉", type: "EMOJI_CELEBRATE" },
-  { emoji: "🤔", type: "EMOJI_THINKING" },
-];
+    { emoji: "🔥", type: "EMOJI_HEART" },
+    { emoji: "🚀", type: "EMOJI_THUMBS_UP" },
+    { emoji: "😂", type: "EMOJI_LAUGH" },
+    { emoji: "🎉", type: "EMOJI_CELEBRATE" },
+    { emoji: "🤔", type: "EMOJI_THINKING" },
+  ];
 
-export const DiskusiForumModule = ({
+export const DiskusiForumAdminModule = ({
   readingId = DEFAULT_READING_ID,
   readingTitle = DEFAULT_READING_TITLE,
   className = "",
-}: DiskusiForumModuleProps) => {
-  const formatDate = (iso?: string) => {
-    if (!iso) return "";
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString();
-    } catch {
-      return iso;
-    }
-  };
+}: DiskusiForumAdminModuleProps) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -94,8 +81,6 @@ export const DiskusiForumModule = ({
   );
 
   const currentUserId = "550e8400-e29b-41d4-a716-446655440000";
-  const session = getUser();
-  const loggedInUserId = session?.id ?? currentUserId;
 
   const fetchComments = useCallback(async () => {
     try {
@@ -103,8 +88,7 @@ export const DiskusiForumModule = ({
       if (!res.ok) {
         const errorBody = await res.text();
         throw new Error(
-          `Gagal mengambil data (${res.status} ${res.statusText})${
-            errorBody ? `: ${errorBody}` : ""
+          `Gagal mengambil data (${res.status} ${res.statusText})${errorBody ? `: ${errorBody}` : ""
           }`,
         );
       }
@@ -112,7 +96,6 @@ export const DiskusiForumModule = ({
 
       const commentsWithReactions = await Promise.all(
         (Array.isArray(data) ? data : []).map(async (comment) => {
-          // enrich comment with reactions and session username if available
           try {
             const reactionRes = await fetch(
               `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
@@ -120,47 +103,9 @@ export const DiskusiForumModule = ({
             const reactions: Reaction[] = reactionRes.ok
               ? await reactionRes.json()
               : [];
-            const enriched = { ...comment, reactions } as CommentItem;
-            if (
-              !enriched.authorName &&
-              session &&
-              enriched.userId === session.id
-            ) {
-              enriched.authorName =
-                session.username ?? session.fullName ?? undefined;
-            }
-            // If backend didn't include a userId but the authorName matches
-            // the current session, mark the comment as owned by the session
-            if (session && !enriched.userId && enriched.authorName) {
-              const author = String(enriched.authorName);
-              if (
-                author === session.username ||
-                (session.fullName && author === session.fullName)
-              ) {
-                enriched.userId = session.id;
-              }
-            }
-            return enriched;
+            return { ...comment, reactions };
           } catch {
-            const enriched = { ...comment, reactions: [] } as CommentItem;
-            if (
-              !enriched.authorName &&
-              session &&
-              enriched.userId === session.id
-            ) {
-              enriched.authorName =
-                session.username ?? session.fullName ?? undefined;
-            }
-            if (session && !enriched.userId && enriched.authorName) {
-              const author = String(enriched.authorName);
-              if (
-                author === session.username ||
-                (session.fullName && author === session.fullName)
-              ) {
-                enriched.userId = session.id;
-              }
-            }
-            return enriched;
+            return { ...comment, reactions: [] };
           }
         }),
       );
@@ -171,7 +116,7 @@ export const DiskusiForumModule = ({
         err instanceof Error ? err.message : "Gagal mengambil komentar";
       setErrorMsg(message);
     }
-  }, [readingId, session]);
+  }, [readingId]);
 
   useEffect(() => {
     fetchComments();
@@ -192,44 +137,20 @@ export const DiskusiForumModule = ({
   };
 
   const postComment = async (content: string, parentId: string | null) => {
-    const session = getUser();
-    const sessionName =
-      session?.username ??
-      session?.fullName ??
-      session?.id?.slice(0, 6) ??
-      null;
-    const tempId = `temp-${Date.now()}`;
-    const now = new Date().toISOString();
-
-    const tempComment: CommentItem = {
-      id: tempId,
-      content,
-      parentCommentId: parentId,
-      readingId,
-      userId: session?.id,
-      authorName: sessionName ?? undefined,
-      createdAt: now,
-      reactions: [],
-    };
-
-    setComments((prev) => [tempComment, ...prev]);
-
     try {
       const res = await fetch(COMMENTS_API_BASE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: session?.id ?? currentUserId,
+          userId: currentUserId,
           readingId,
           content: content,
           parentCommentId: parentId,
         }),
       });
       if (!res.ok) throw new Error("Gagal mengirim komentar");
-
       await fetchComments();
     } catch (err) {
-      setComments((prev) => prev.filter((c) => c.id !== tempId));
       const message =
         err instanceof Error ? err.message : "Gagal mengirim komentar";
       setErrorMsg(message);
@@ -242,7 +163,7 @@ export const DiskusiForumModule = ({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: loggedInUserId,
+          userId: currentUserId,
           content: editContent,
         }),
       });
@@ -260,7 +181,7 @@ export const DiskusiForumModule = ({
     if (!confirm("Hapus komentar ini?")) return;
     try {
       const res = await fetch(
-        `${COMMENTS_API_BASE_URL}/${id}?userId=${loggedInUserId}`,
+        `${COMMENTS_API_BASE_URL}/${id}?userId=${currentUserId}`,
         {
           method: "DELETE",
         },
@@ -297,7 +218,7 @@ export const DiskusiForumModule = ({
           comment.id === commentId ? { ...comment, reactions } : comment,
         ),
       );
-    } catch {}
+    } catch { }
   };
 
   const updateCommentsOptimistically = (
@@ -310,7 +231,7 @@ export const DiskusiForumModule = ({
 
         const reactions = comment.reactions ? [...comment.reactions] : [];
         const existingIndex = reactions.findIndex(
-          (reaction) => reaction.userId === loggedInUserId,
+          (reaction) => reaction.userId === currentUserId,
         );
 
         if (existingIndex >= 0) {
@@ -327,7 +248,7 @@ export const DiskusiForumModule = ({
           reactions.push({
             id: `temp-${Date.now()}`,
             commentId,
-            userId: loggedInUserId,
+            userId: currentUserId,
             reactionType,
           });
         }
@@ -348,7 +269,7 @@ export const DiskusiForumModule = ({
       (comment) => comment.id === commentId,
     );
     const existingReaction = currentComment?.reactions?.find(
-      (reaction) => reaction.userId === loggedInUserId,
+      (reaction) => reaction.userId === currentUserId,
     );
 
     updateCommentsOptimistically(commentId, reactionType);
@@ -356,7 +277,7 @@ export const DiskusiForumModule = ({
     try {
       if (existingReaction && existingReaction.reactionType === reactionType) {
         const deleteRes = await fetch(
-          `${REACTIONS_API_BASE_URL}/${existingReaction.id}?userId=${loggedInUserId}`,
+          `${REACTIONS_API_BASE_URL}/${existingReaction.id}?userId=${currentUserId}`,
           { method: "DELETE" },
         );
         if (!deleteRes.ok) throw new Error("Gagal menghapus reaction");
@@ -366,7 +287,7 @@ export const DiskusiForumModule = ({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             commentId,
-            userId: loggedInUserId,
+            userId: currentUserId,
             reactionType,
           }),
         });
@@ -388,170 +309,124 @@ export const DiskusiForumModule = ({
     }
   };
 
-  const renderComment = (comment: CommentItem, isReply = false) => {
-    const optionsWithCount = REACTION_OPTIONS.map((option) => ({
-      ...option,
-      count: getReactionCount(comment, option.type),
-    }));
-    const sortedOptions = optionsWithCount.sort((a, b) => b.count - a.count);
-    const isOwner =
-      comment.userId === loggedInUserId ||
-      (session &&
-        comment.authorName &&
-        (comment.authorName === session.username ||
-          (session.fullName && comment.authorName === session.fullName)));
-
-    return (
-      <div
-        key={comment.id}
-        className={`p-5 rounded-xl border shadow-sm ${isReply ? "ml-10 bg-white" : "bg-white"}`}>
-        {}
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
-              {comment.authorName
-                ? comment.authorName.charAt(0).toUpperCase()
-                : comment.userId
-                  ? comment.userId.charAt(0).toUpperCase()
-                  : "U"}
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-800">
-                {comment.authorName ??
-                  (comment.userId
-                    ? `User ${comment.userId.slice(0, 6)}`
-                    : "Unknown")}
-              </div>
-              {comment.createdAt && (
-                <div className="text-xs text-slate-500">
-                  {formatDate(comment.createdAt)}
-                </div>
-              )}
-            </div>
+  const renderComment = (comment: CommentItem, isReply = false) => (
+    <div
+      key={comment.id}
+      className={`p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 dark:bg-zinc-950 shadow-sm ${isReply ? "ml-10 bg-zinc-50/50" : "bg-white"
+        }`}>
+      {editingId === comment.id ? (
+        <div className="space-y-3">
+          <textarea
+            className="w-full p-3 rounded-lg border border-zinc-300 dark:bg-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleUpdate(comment.id)}
+              className="bg-green-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-green-700 transition">
+              Simpan
+            </button>
+            <button
+              onClick={() => setEditingId(null)}
+              className="bg-zinc-500 text-white px-4 py-1.5 rounded-md text-sm hover:bg-zinc-600 transition">
+              Batal
+            </button>
           </div>
         </div>
+      ) : (
+        <>
+          <p className="text-zinc-800 dark:text-zinc-200 mb-4 whitespace-pre-wrap">
+            {comment.content}
+          </p>
 
-        {editingId === comment.id ? (
-          <div className="space-y-3">
-            <textarea
-              className="w-full p-3 rounded-lg border border-zinc-300 dark:bg-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleUpdate(comment.id)}
-                className="bg-green-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-green-700 transition">
-                Simpan
-              </button>
-              <button
-                onClick={() => setEditingId(null)}
-                className="bg-zinc-500 text-white px-4 py-1.5 rounded-md text-sm hover:bg-zinc-600 transition">
-                Batal
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="text-zinc-800 dark:text-zinc-200 mb-4 whitespace-pre-wrap">
-              {comment.content}
-            </p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {REACTION_OPTIONS.map((option) => {
+              const count = getReactionCount(comment, option.type);
+              const loading = loadingReactions.has(
+                `${comment.id}:${option.type}`,
+              );
+              const userReacted =
+                comment.reactions?.some(
+                  (reaction) =>
+                    reaction.userId === currentUserId &&
+                    reaction.reactionType === option.type,
+                ) || false;
 
-            <div className="flex flex-wrap gap-2 mb-4">
-              {sortedOptions.map((option) => {
-                const count = option.count;
-                const loading = loadingReactions.has(
-                  `${comment.id}:${option.type}`,
-                );
-                const userReacted =
-                  comment.reactions?.some(
-                    (reaction) =>
-                      reaction.userId === loggedInUserId &&
-                      reaction.reactionType === option.type,
-                  ) || false;
-
-                return (
-                  <button
-                    key={option.type}
-                    type="button"
-                    disabled={loading}
-                    onClick={() => handleReact(comment.id, option.type)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-all ${
-                      userReacted
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-blue-300 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300"
+              return (
+                <button
+                  key={option.type}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleReact(comment.id, option.type)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-all ${userReacted
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-blue-300 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300"
                     } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
-                    title={userReacted ? "Hapus reaction" : "Tambah reaction"}>
-                    <span>{option.emoji}</span>
-                    {count > 0 && (
-                      <span className="font-semibold">{count}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex gap-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-              <button
-                type="button"
-                onClick={() => setReplyingToId(comment.id)}
-                className={`${secondary} px-3`}>
-                Balas
-              </button>
-              {isOwner && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingId(comment.id);
-                      setEditContent(comment.content);
-                    }}
-                    className={`${secondary} px-3`}>
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(comment.id)}
-                    className={`${danger}`}>
-                    Hapus
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        )}
-
-        {replyingToId === comment.id && (
-          <div className="mt-4 space-y-3 pl-4 border-l-2 border-emerald-200">
-            <textarea
-              className={`${input} p-3 bg-transparent`}
-              placeholder="Tulis balasan..."
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleReply(comment.id)}
-                className={`${primary} px-3 py-1.5 text-sm`}>
-                Balas
-              </button>
-              <button
-                type="button"
-                onClick={() => setReplyingToId(null)}
-                className={`${secondary} px-3 py-1.5 text-sm`}>
-                Batal
-              </button>
-            </div>
+                  title={userReacted ? "Hapus reaction" : "Tambah reaction"}>
+                  <span>{option.emoji}</span>
+                  {count > 0 && <span className="font-semibold">{count}</span>}
+                </button>
+              );
+            })}
           </div>
-        )}
 
-        <div className="mt-4 space-y-4">
-          {getReplies(comment.id).map((reply) => renderComment(reply, true))}
+          <div className="flex gap-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+            <button
+              type="button"
+              onClick={() => setReplyingToId(comment.id)}
+              className={`${secondary} px-3`}>
+              Balas
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(comment.id);
+                setEditContent(comment.content);
+              }}
+              className={`${secondary} px-3`}>
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDelete(comment.id)}
+              className={`${danger}`}>
+              Hapus
+            </button>
+          </div>
+        </>
+      )}
+
+      {replyingToId === comment.id && (
+        <div className="mt-4 space-y-3 pl-4 border-l-2 border-emerald-200">
+          <textarea
+            className={`${input} p-3 bg-transparent`}
+            placeholder="Tulis balasan..."
+            value={replyContent}
+            onChange={(e) => setReplyContent(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => handleReply(comment.id)}
+              className={`${primary} px-3 py-1.5 text-sm`}>
+              Balas
+            </button>
+            <button
+              type="button"
+              onClick={() => setReplyingToId(null)}
+              className={`${secondary} px-3 py-1.5 text-sm`}>
+              Batal
+            </button>
+          </div>
         </div>
+      )}
+
+      <div className="mt-4 space-y-4">
+        {getReplies(comment.id).map((reply) => renderComment(reply, true))}
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <section className={`${shell} ${className}`.trim()}>

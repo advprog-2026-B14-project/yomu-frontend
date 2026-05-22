@@ -29,3 +29,43 @@ export interface PinAchievementRequest {
   achievementId: string; // UUID as string
   pinOrder: number;
 }
+
+/** Master achievement DTO for dropdown selection and admin */
+export interface AchievementMasterDto {
+  id?: string;
+  nama: string;
+  deskripsi: string;
+  milestoneTarget: number;
+  poinReward: number;
+  milestoneType: string;
+  badgeUrl: string;
+}
+
+/** Master daily mission DTO for admin */
+export interface DailyMissionMasterDto {
+  id?: string;
+  namaMisi: string;
+  milestoneTarget: number;
+  poinReward: number;
+  milestoneType: string;
+}
+
+/** In-progress achievement DTO */
+export interface UserAchievementProgressDto {
+  achievementId: string;
+  nama: string;
+  deskripsi: string;
+  milestoneTarget: number;
+  currentProgress: number;
+  badgeUrl: string;
+}
+
+/** User daily mission DTO */
+export interface UserDailyMissionDto {
+  missionId: string;
+  namaMisi: string;
+  milestoneTarget: number;
+  progress: number;
+  isCompleted: boolean;
+  poinReward: number;
+}
