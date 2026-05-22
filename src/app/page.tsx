@@ -22,13 +22,7 @@ export default function Home() {
       path: "/bacaan-kuis",
       color: "text-blue-600 bg-blue-50 border-blue-100",
     },
-    {
-      title: "Diskusi Forum",
-      desc: "Bertanya, berdiskusi, dan berbagi ilmu dengan learner lainnya.",
-      icon: "💬",
-      path: "/diskusi-forum",
-      color: "text-amber-600 bg-amber-50 border-amber-100",
-    },
+
     {
       title: "Achievement",
       desc: "Kumpulkan poin dan pamerkan lencanamu kepada yang lain.",
@@ -71,7 +65,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((item, i) => (
             <Link
               key={i}
