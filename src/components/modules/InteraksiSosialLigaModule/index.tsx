@@ -178,30 +178,39 @@ export const InteraksiSosialLigaModule = () => {
         }
     };
 
-    // ─── [BARU] FUNGSI NARIK DATA KLAN SENDIRI ───
     const fetchMyClan = async (userId: string) => {
         try {
-            // Coba ambil token dari cookie (asumsi nama cookie-nya token atau auth_token)
-            const cookies = document.cookie.split("; ");
-            const tokenCookie = cookies.find(c => c.startsWith("token=") || c.startsWith("auth_token="));
-            const token = tokenCookie ? tokenCookie.split("=")[1] : "";
+            let token = "";
+            if (typeof window !== "undefined") {
+                token = localStorage.getItem("token") || localStorage.getItem("accessToken") || "";
+            }
+
+            if (!token) {
+                const cookies = document.cookie.split("; ");
+                const tokenCookie = cookies.find(c => c.startsWith("token=") || c.startsWith("auth_token="));
+                token = tokenCookie ? tokenCookie.split("=")[1] : "";
+            }
 
             const headers: HeadersInit = { "Content-Type": "application/json" };
             if (token) headers["Authorization"] = `Bearer ${token}`;
+
+            console.log("Nembak API my-clan pake UserID:", userId); // Buat ngecek di Inspect
 
             const res = await fetch(`${API_BASE_URL}/liga/clan/me?userId=${userId}`, {
                 method: "GET",
                 headers: headers
             });
 
+            console.log("Status API my-clan:", res.status); // Buat ngecek di Inspect
+
             if (res.ok) {
                 const data = await res.json();
                 setMyClan(data);
             } else {
-                setMyClan(null); // Kalo 404 brarti blm punya klan
+                setMyClan(null);
             }
         } catch (e) {
-            console.error("User belum punya klan atau server error");
+            console.error("Gagal nyambung ke server buat fetch my clan:", e);
         }
     };
 
