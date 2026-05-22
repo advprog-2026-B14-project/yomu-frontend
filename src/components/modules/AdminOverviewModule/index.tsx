@@ -13,16 +13,17 @@ export const AdminOverviewModule = () => {
                         Selamat Datang di <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">Admin Panel</span>
                     </h1>
                     <p className="text-lg text-slate-600 font-medium leading-relaxed">
-                        Pilih menu di sidebar sebelah kiri untuk mengelola fitur-fitur Yomu seperti Manajemen Pengguna, Achievements, dan Konten Bacaan & Kuis.
+                        Pilih menu di sidebar sebelah kiri untuk mengelola fitur-fitur Yomu seperti Manajemen Pengguna, Achievements, Konten Bacaan & Kuis, dan Diskusi Forum.
                     </p>
                 </div>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                     { title: "Manajemen User", desc: "Kelola role dan hapus pengguna.", icon: "👥", path: "/admin/users" },
                     { title: "Master Achievement", desc: "Buat dan edit data pencapaian.", icon: "🏆", path: "/admin/achievement" },
                     { title: "Bacaan & Kuis", desc: "Kelola kategori, konten bacaan, dan kuis.", icon: "📖", path: "/admin/bacaan-kuis" },
+                    { title: "Diskusi Forum", desc: "Pantau diskusi dan hapus komentar.", icon: "💬", path: "/admin/diskusi-forum" },
                 ].map((item, i) => (
                     <div key={i} className="group p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all hover:-translate-y-1">
                         <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-2xl mb-4 group-hover:bg-emerald-50 group-hover:scale-110 transition-all">

@@ -31,7 +31,7 @@ type CommentItem = {
   reactions?: Reaction[];
 };
 
-type DiskusiForumModuleProps = {
+type DiskusiForumAdminModuleProps = {
   readingId?: string;
   readingTitle?: string;
   className?: string;
@@ -63,11 +63,11 @@ const REACTION_OPTIONS: Array<{
     { emoji: "🤔", type: "EMOJI_THINKING" },
   ];
 
-export const DiskusiForumModule = ({
+export const DiskusiForumAdminModule = ({
   readingId = DEFAULT_READING_ID,
   readingTitle = DEFAULT_READING_TITLE,
   className = "",
-}: DiskusiForumModuleProps) => {
+}: DiskusiForumAdminModuleProps) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -177,7 +177,23 @@ export const DiskusiForumModule = ({
     }
   };
 
-
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus komentar ini?")) return;
+    try {
+      const res = await fetch(
+        `${COMMENTS_API_BASE_URL}/${id}?userId=${currentUserId}`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (!res.ok) throw new Error("Gagal menghapus komentar");
+      await fetchComments();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Gagal menghapus komentar";
+      setErrorMsg(message);
+    }
+  };
 
   const rootComments = comments.filter((c) => !c.parentCommentId);
   const getReplies = (parentId: string) =>
@@ -370,6 +386,12 @@ export const DiskusiForumModule = ({
               }}
               className={`${secondary} px-3`}>
               Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDelete(comment.id)}
+              className={`${danger}`}>
+              Hapus
             </button>
           </div>
         </>
