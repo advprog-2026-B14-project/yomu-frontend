@@ -14,7 +14,24 @@ const nextConfig: NextConfig = {
       });
     }
 
-    if (authApiUrl) {
+    const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "");
+
+    if (gatewayUrl) {
+      rewrites.push(
+        {
+          source: "/api/auth/:path*",
+          destination: `${gatewayUrl}/api/auth/:path*`,
+        },
+        {
+          source: "/api/admin/:path*",
+          destination: `${gatewayUrl}/api/admin/:path*`,
+        },
+        {
+          source: "/api/user/:path*",
+          destination: `${gatewayUrl}/api/user/:path*`,
+        }
+      );
+    } else if (authApiUrl) {
       rewrites.push(
         {
           source: "/api/auth/:path*",
