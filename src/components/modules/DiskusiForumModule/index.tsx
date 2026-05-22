@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { getUser } from "@/lib/auth";
 
 const API_BASE_PATH = "/api/diskusi-forum";
 
@@ -28,6 +29,9 @@ type CommentItem = {
   content: string;
   parentCommentId?: string | null;
   readingId?: string;
+  userId?: string;
+  authorName?: string;
+  createdAt?: string;
   reactions?: Reaction[];
 };
 
@@ -68,6 +72,15 @@ export const DiskusiForumModule = ({
   readingTitle = DEFAULT_READING_TITLE,
   className = "",
 }: DiskusiForumModuleProps) => {
+  const formatDate = (iso?: string) => {
+    if (!iso) return "";
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString();
+    } catch {
+      return iso;
+    }
+  };
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -138,20 +151,44 @@ export const DiskusiForumModule = ({
   };
 
   const postComment = async (content: string, parentId: string | null) => {
+    const session = getUser();
+    const sessionName =
+      session?.username ??
+      session?.fullName ??
+      session?.id?.slice(0, 6) ??
+      null;
+    const tempId = `temp-${Date.now()}`;
+    const now = new Date().toISOString();
+
+    const tempComment: CommentItem = {
+      id: tempId,
+      content,
+      parentCommentId: parentId,
+      readingId,
+      userId: session?.id,
+      authorName: sessionName ?? undefined,
+      createdAt: now,
+      reactions: [],
+    };
+
+    setComments((prev) => [tempComment, ...prev]);
+
     try {
       const res = await fetch(COMMENTS_API_BASE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: currentUserId,
+          userId: session?.id ?? currentUserId,
           readingId,
           content: content,
           parentCommentId: parentId,
         }),
       });
       if (!res.ok) throw new Error("Gagal mengirim komentar");
+
       await fetchComments();
     } catch (err) {
+      setComments((prev) => prev.filter((c) => c.id !== tempId));
       const message =
         err instanceof Error ? err.message : "Gagal mengirim komentar";
       setErrorMsg(message);
@@ -310,126 +347,160 @@ export const DiskusiForumModule = ({
     }
   };
 
-  const renderComment = (comment: CommentItem, isReply = false) => (
-    <div
-      key={comment.id}
-      className={`p-5 rounded-xl border border-zinc-200 dark:border-zinc-800 dark:bg-zinc-950 shadow-sm ${
-        isReply ? "ml-10 bg-zinc-50/50" : "bg-white"
-      }`}>
-      {editingId === comment.id ? (
-        <div className="space-y-3">
-          <textarea
-            className="w-full p-3 rounded-lg border border-zinc-300 dark:bg-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleUpdate(comment.id)}
-              className="bg-green-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-green-700 transition">
-              Simpan
-            </button>
-            <button
-              onClick={() => setEditingId(null)}
-              className="bg-zinc-500 text-white px-4 py-1.5 rounded-md text-sm hover:bg-zinc-600 transition">
-              Batal
-            </button>
+  const renderComment = (comment: CommentItem, isReply = false) => {
+    const optionsWithCount = REACTION_OPTIONS.map((option) => ({
+      ...option,
+      count: getReactionCount(comment, option.type),
+    }));
+    const sortedOptions = optionsWithCount.sort((a, b) => b.count - a.count);
+
+    return (
+      <div
+        key={comment.id}
+        className={`p-5 rounded-xl border shadow-sm ${isReply ? "ml-10 bg-white" : "bg-white"}`}>
+        {}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 flex items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
+              {comment.authorName
+                ? comment.authorName.charAt(0).toUpperCase()
+                : comment.userId
+                  ? comment.userId.charAt(0).toUpperCase()
+                  : "U"}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-800">
+                {comment.authorName ??
+                  (comment.userId
+                    ? `User ${comment.userId.slice(0, 6)}`
+                    : "Unknown")}
+              </div>
+              {comment.createdAt && (
+                <div className="text-xs text-slate-500">
+                  {formatDate(comment.createdAt)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      ) : (
-        <>
-          <p className="text-zinc-800 dark:text-zinc-200 mb-4 whitespace-pre-wrap">
-            {comment.content}
-          </p>
 
-          <div className="flex flex-wrap gap-2 mb-4">
-            {REACTION_OPTIONS.map((option) => {
-              const count = getReactionCount(comment, option.type);
-              const loading = loadingReactions.has(
-                `${comment.id}:${option.type}`,
-              );
-              const userReacted =
-                comment.reactions?.some(
-                  (reaction) =>
-                    reaction.userId === currentUserId &&
-                    reaction.reactionType === option.type,
-                ) || false;
-
-              return (
-                <button
-                  key={option.type}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleReact(comment.id, option.type)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-all ${
-                    userReacted
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-blue-300 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300"
-                  } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
-                  title={userReacted ? "Hapus reaction" : "Tambah reaction"}>
-                  <span>{option.emoji}</span>
-                  {count > 0 && <span className="font-semibold">{count}</span>}
-                </button>
-              );
-            })}
+        {editingId === comment.id ? (
+          <div className="space-y-3">
+            <textarea
+              className="w-full p-3 rounded-lg border border-zinc-300 dark:bg-zinc-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleUpdate(comment.id)}
+                className="bg-green-600 text-white px-4 py-1.5 rounded-md text-sm hover:bg-green-700 transition">
+                Simpan
+              </button>
+              <button
+                onClick={() => setEditingId(null)}
+                className="bg-zinc-500 text-white px-4 py-1.5 rounded-md text-sm hover:bg-zinc-600 transition">
+                Batal
+              </button>
+            </div>
           </div>
+        ) : (
+          <>
+            <p className="text-zinc-800 dark:text-zinc-200 mb-4 whitespace-pre-wrap">
+              {comment.content}
+            </p>
 
-          <div className="flex gap-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-            <button
-              type="button"
-              onClick={() => setReplyingToId(comment.id)}
-              className={`${secondary} px-3`}>
-              Balas
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingId(comment.id);
-                setEditContent(comment.content);
-              }}
-              className={`${secondary} px-3`}>
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDelete(comment.id)}
-              className={`${danger}`}>
-              Hapus
-            </button>
-          </div>
-        </>
-      )}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {sortedOptions.map((option) => {
+                const count = option.count;
+                const loading = loadingReactions.has(
+                  `${comment.id}:${option.type}`,
+                );
+                const userReacted =
+                  comment.reactions?.some(
+                    (reaction) =>
+                      reaction.userId === currentUserId &&
+                      reaction.reactionType === option.type,
+                  ) || false;
 
-      {replyingToId === comment.id && (
-        <div className="mt-4 space-y-3 pl-4 border-l-2 border-emerald-200">
-          <textarea
-            className={`${input} p-3 bg-transparent`}
-            placeholder="Tulis balasan..."
-            value={replyContent}
-            onChange={(e) => setReplyContent(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => handleReply(comment.id)}
-              className={`${primary} px-3 py-1.5 text-sm`}>
-              Balas
-            </button>
-            <button
-              type="button"
-              onClick={() => setReplyingToId(null)}
-              className={`${secondary} px-3 py-1.5 text-sm`}>
-              Batal
-            </button>
+                return (
+                  <button
+                    key={option.type}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleReact(comment.id, option.type)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-all ${
+                      userReacted
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "bg-zinc-50 border-zinc-200 text-zinc-700 hover:border-blue-300 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300"
+                    } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+                    title={userReacted ? "Hapus reaction" : "Tambah reaction"}>
+                    <span>{option.emoji}</span>
+                    {count > 0 && (
+                      <span className="font-semibold">{count}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-4 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <button
+                type="button"
+                onClick={() => setReplyingToId(comment.id)}
+                className={`${secondary} px-3`}>
+                Balas
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(comment.id);
+                  setEditContent(comment.content);
+                }}
+                className={`${secondary} px-3`}>
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(comment.id)}
+                className={`${danger}`}>
+                Hapus
+              </button>
+            </div>
+          </>
+        )}
+
+        {replyingToId === comment.id && (
+          <div className="mt-4 space-y-3 pl-4 border-l-2 border-emerald-200">
+            <textarea
+              className={`${input} p-3 bg-transparent`}
+              placeholder="Tulis balasan..."
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleReply(comment.id)}
+                className={`${primary} px-3 py-1.5 text-sm`}>
+                Balas
+              </button>
+              <button
+                type="button"
+                onClick={() => setReplyingToId(null)}
+                className={`${secondary} px-3 py-1.5 text-sm`}>
+                Batal
+              </button>
+            </div>
           </div>
+        )}
+
+        <div className="mt-4 space-y-4">
+          {getReplies(comment.id).map((reply) => renderComment(reply, true))}
         </div>
-      )}
-
-      <div className="mt-4 space-y-4">
-        {getReplies(comment.id).map((reply) => renderComment(reply, true))}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <section className={`${shell} ${className}`.trim()}>
