@@ -41,8 +41,6 @@ type DiskusiForumModuleProps = {
   className?: string;
 };
 
-
-
 const shell = "w-full font-sans";
 const panel =
   "rounded-3xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur mx-auto w-full max-w-6xl p-5 sm:p-6";
@@ -71,21 +69,6 @@ export const DiskusiForumModule = ({
   readingTitle,
   className = "",
 }: DiskusiForumModuleProps) => {
-  if (!readingId) {
-    return (
-      <section className={`${shell} ${className}`.trim()}>
-        <div className={panel}>
-          <div className="py-20 text-center">
-            <h2 className="text-2xl font-black text-slate-800">Pilih bacaan terlebih dahulu</h2>
-            <p className="mt-3 text-sm text-slate-500">
-              Silakan pilih bacaan pada panel sebelah kiri untuk melihat dan mengikuti diskusi forum.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   const formatDate = (iso?: string) => {
     if (!iso) return "";
     try {
@@ -199,6 +182,24 @@ export const DiskusiForumModule = ({
   useEffect(() => {
     fetchComments();
   }, [fetchComments]);
+
+  if (!readingId) {
+    return (
+      <section className={`${shell} ${className}`.trim()}>
+        <div className={panel}>
+          <div className="py-20 text-center">
+            <h2 className="text-2xl font-black text-slate-800">
+              Pilih bacaan terlebih dahulu
+            </h2>
+            <p className="mt-3 text-sm text-slate-500">
+              Silakan pilih bacaan pada panel sebelah kiri untuk melihat dan
+              mengikuti diskusi forum.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
