@@ -22,6 +22,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             return;
         }
 
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsAuthorized(true);
     }, [router]);
 

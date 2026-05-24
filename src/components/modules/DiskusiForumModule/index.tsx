@@ -3,7 +3,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { getUser, getToken } from "@/lib/auth";
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") || "https://yomu-gateway-prod.fly.dev";
+const GATEWAY_URL =
+  process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") ||
+  "https://yomu-gateway-prod.fly.dev";
 const COMMENTS_API_BASE_URL = `${GATEWAY_URL}/api/forum/comments`;
 const REACTIONS_API_BASE_URL = `${GATEWAY_URL}/api/forum/reactions`;
 
@@ -40,8 +42,6 @@ type DiskusiForumModuleProps = {
   className?: string;
 };
 
-
-
 const shell = "w-full font-sans";
 const panel =
   "rounded-3xl border border-white/70 bg-white/80 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur mx-auto w-full max-w-6xl p-5 sm:p-6";
@@ -70,21 +70,6 @@ export const DiskusiForumModule = ({
   readingTitle,
   className = "",
 }: DiskusiForumModuleProps) => {
-  if (!readingId) {
-    return (
-      <section className={`${shell} ${className}`.trim()}>
-        <div className={panel}>
-          <div className="py-20 text-center">
-            <h2 className="text-2xl font-black text-slate-800">Pilih bacaan terlebih dahulu</h2>
-            <p className="mt-3 text-sm text-slate-500">
-              Silakan pilih bacaan pada panel sebelah kiri untuk melihat dan mengikuti diskusi forum.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   const formatDate = (iso?: string) => {
     if (!iso) return "";
     try {
@@ -106,10 +91,9 @@ export const DiskusiForumModule = ({
     () => new Set(),
   );
 
-  const currentUserId = "550e8400-e29b-41d4-a716-446655440000";
   const session = getUser();
   const token = getToken();
-  const loggedInUserId = session?.id ?? currentUserId;
+  const loggedInUserId = session?.id ?? "";
 
   const fetchComments = useCallback(async () => {
     try {
@@ -245,7 +229,7 @@ export const DiskusiForumModule = ({
         method: "POST",
         headers,
         body: JSON.stringify({
-          userId: session?.id ?? currentUserId,
+          userId: session?.id,
           readingId,
           content: content,
           parentCommentId: parentId,
@@ -291,14 +275,16 @@ export const DiskusiForumModule = ({
     try {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(
-        `${COMMENTS_API_BASE_URL}/${id}?userId=${loggedInUserId}`,
-        {
-          method: "DELETE",
-          headers,
-        },
-      );
-      if (!res.ok) throw new Error("Gagal menghapus komentar");
+      const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(
+          `Gagal menghapus komentar (${res.status} ${res.statusText})${errorBody ? `: ${errorBody}` : ""}`,
+        );
+      }
       await fetchComments();
     } catch (err) {
       const message =
@@ -597,57 +583,69 @@ export const DiskusiForumModule = ({
   return (
     <section className={`${shell} ${className}`.trim()}>
       <div className={panel}>
-        <div className="space-y-6">
-          {readingTitle ? (
-            <div className="space-y-2 text-center">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
-                Diskusi bacaan
-              </p>
-              <h2 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
-                {readingTitle}
-              </h2>
-              <p className="mx-auto max-w-2xl text-sm leading-6 text-slate-500">
-                Thread ini mengikuti bacaan yang sedang aktif, jadi konteks
-                diskusi tetap nyambung dengan materi yang dibaca.
-              </p>
-            </div>
-          ) : null}
-
-          <form
-            onSubmit={handleCreate}
-            className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-            <textarea
-              className={`${input} p-4 bg-transparent`}
-              placeholder="Apa pendapatmu mengenai bacaan ini?"
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              required
-            />
-            <button className={`${primary}`}>Kirim Komentar</button>
-          </form>
-
-          {errorMsg && (
-            <div className="flex items-center justify-between rounded-lg border border-red-200 px-4 py-3 text-red-600 dark:border-red-900/60 dark:text-red-300">
-              <span>{errorMsg}</span>
-              <button
-                type="button"
-                onClick={() => setErrorMsg(null)}
-                className="text-sm font-bold">
-                ×
-              </button>
-            </div>
-          )}
-
-          <div className="space-y-6 rounded-3xl border border-slate-100 bg-slate-50/60 p-4 sm:p-5">
-            {rootComments.length > 0 ? (
-              rootComments.map((comment) => renderComment(comment))
-            ) : (
-              <p className="py-10 text-center italic text-zinc-500">
-                Belum ada diskusi. Jadilah yang pertama berkomentar!
-              </p>
-            )}
+        {!readingId ? (
+          <div className="py-20 text-center">
+            <h2 className="text-2xl font-black text-slate-800">
+              Pilih bacaan terlebih dahulu
+            </h2>
+            <p className="mt-3 text-sm text-slate-500">
+              Silakan pilih bacaan pada panel sebelah kiri untuk melihat dan
+              mengikuti diskusi forum.
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-6">
+            {readingTitle ? (
+              <div className="space-y-2 text-center">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+                  Diskusi bacaan
+                </p>
+                <h2 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                  {readingTitle}
+                </h2>
+                <p className="mx-auto max-w-2xl text-sm leading-6 text-slate-500">
+                  Thread ini mengikuti bacaan yang sedang aktif, jadi konteks
+                  diskusi tetap nyambung dengan materi yang dibaca.
+                </p>
+              </div>
+            ) : null}
+
+            <form
+              onSubmit={handleCreate}
+              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+              <textarea
+                className={`${input} p-4 bg-transparent`}
+                placeholder="Apa pendapatmu mengenai bacaan ini?"
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                required
+              />
+              <button className={`${primary}`}>Kirim Komentar</button>
+            </form>
+
+            {errorMsg && (
+              <div className="flex items-center justify-between rounded-lg border border-red-200 px-4 py-3 text-red-600 dark:border-red-900/60 dark:text-red-300">
+                <span>{errorMsg}</span>
+                <button
+                  type="button"
+                  onClick={() => setErrorMsg(null)}
+                  className="text-sm font-bold">
+                  ×
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-6 rounded-3xl border border-slate-100 bg-slate-50/60 p-4 sm:p-5">
+              {rootComments.length > 0 ? (
+                rootComments.map((comment) => renderComment(comment))
+              ) : (
+                <p className="py-10 text-center italic text-zinc-500">
+                  Belum ada diskusi. Jadilah yang pertama berkomentar!
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
