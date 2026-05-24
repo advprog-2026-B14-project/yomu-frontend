@@ -109,66 +109,73 @@ export const DiskusiForumModule = ({
         );
       }
       const data: CommentItem[] = await res.json();
+      const dataArray = Array.isArray(data) ? data : [];
 
-      const commentsWithReactions = await Promise.all(
-        (Array.isArray(data) ? data : []).map(async (comment) => {
-          // enrich comment with reactions and session username if available
-          try {
-            const reactionRes = await fetch(
-              `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
-              {
-                headers: token
-                  ? { Authorization: `Bearer ${token}` }
-                  : undefined,
-              },
-            );
-            const reactions: Reaction[] = reactionRes.ok
-              ? await reactionRes.json()
-              : [];
-            const enriched = { ...comment, reactions } as CommentItem;
-            if (
-              !enriched.authorName &&
-              session &&
-              enriched.userId === session.id
-            ) {
-              enriched.authorName =
-                session.username ?? session.fullName ?? undefined;
-            }
-            // If backend didn't include a userId but the authorName matches
-            // the current session, mark the comment as owned by the session
-            if (session && !enriched.userId && enriched.authorName) {
-              const author = String(enriched.authorName);
+      const commentsWithReactions: CommentItem[] = [];
+      const CHUNK_SIZE = 5; // Batasi request ke server maks 5 bersamaan agar tidak 504 Timeout
+
+      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+
+        const chunkResults = await Promise.all(
+          chunk.map(async (comment) => {
+            try {
+              const reactionRes = await fetch(
+                `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
+                {
+                  headers: token
+                    ? { Authorization: `Bearer ${token}` }
+                    : undefined,
+                },
+              );
+              const reactions: Reaction[] = reactionRes.ok
+                ? await reactionRes.json()
+                : [];
+              const enriched = { ...comment, reactions } as CommentItem;
+
               if (
-                author === session.username ||
-                (session.fullName && author === session.fullName)
+                !enriched.authorName &&
+                session &&
+                enriched.userId === session.id
               ) {
-                enriched.userId = session.id;
+                enriched.authorName =
+                  session.username ?? session.fullName ?? undefined;
               }
-            }
-            return enriched;
-          } catch {
-            const enriched = { ...comment, reactions: [] } as CommentItem;
-            if (
-              !enriched.authorName &&
-              session &&
-              enriched.userId === session.id
-            ) {
-              enriched.authorName =
-                session.username ?? session.fullName ?? undefined;
-            }
-            if (session && !enriched.userId && enriched.authorName) {
-              const author = String(enriched.authorName);
+              if (session && !enriched.userId && enriched.authorName) {
+                const author = String(enriched.authorName);
+                if (
+                  author === session.username ||
+                  (session.fullName && author === session.fullName)
+                ) {
+                  enriched.userId = session.id;
+                }
+              }
+              return enriched;
+            } catch {
+              const enriched = { ...comment, reactions: [] } as CommentItem;
               if (
-                author === session.username ||
-                (session.fullName && author === session.fullName)
+                !enriched.authorName &&
+                session &&
+                enriched.userId === session.id
               ) {
-                enriched.userId = session.id;
+                enriched.authorName =
+                  session.username ?? session.fullName ?? undefined;
               }
+              if (session && !enriched.userId && enriched.authorName) {
+                const author = String(enriched.authorName);
+                if (
+                  author === session.username ||
+                  (session.fullName && author === session.fullName)
+                ) {
+                  enriched.userId = session.id;
+                }
+              }
+              return enriched;
             }
-            return enriched;
-          }
-        }),
-      );
+          }),
+        );
+        commentsWithReactions.push(...chunkResults);
+      }
 
       setComments(commentsWithReactions);
     } catch (err) {

@@ -74,7 +74,7 @@ export const DiskusiForumAdminModule = ({
   className?: string;
 }) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -84,6 +84,7 @@ export const DiskusiForumAdminModule = ({
   const token = getToken();
 
   const fetchComments = useCallback(async () => {
+    setLoading(true);
     const endpoints = [
       COMMENTS_API_BASE_URL,
       `${COMMENTS_API_BASE_URL}/all`,
@@ -109,11 +110,12 @@ export const DiskusiForumAdminModule = ({
         const items = normalizeComments(payload).sort((left, right) => {
           const leftTime = new Date(right.createdAt ?? 0).getTime();
           const rightTime = new Date(left.createdAt ?? 0).getTime();
-          return leftTime - rightTime;
+          return leftTime - rightTime; // Descending
         });
 
         setComments(items);
         setErrorMsg(null);
+        setLoading(false);
         return;
       } catch (error) {
         lastError = error instanceof Error ? error.message : lastError;
@@ -122,6 +124,7 @@ export const DiskusiForumAdminModule = ({
 
     setErrorMsg(lastError);
     setComments([]);
+    setLoading(false);
   }, [token]);
 
   useEffect(() => {
