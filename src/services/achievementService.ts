@@ -16,8 +16,13 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_GATEWAY_URL ?? "/api/backend";
 
 /** Resolves a path against the configured API base URL. */
-const toUrl = (path: string): string =>
-  `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+const toUrl = (path: string): string => {
+  const baseUrl = API_BASE_URL.replace(/\/$/, "");
+  if (!baseUrl.startsWith("http") && !baseUrl.startsWith("/")) {
+    return `http://${baseUrl}${path}`;
+  }
+  return `${baseUrl}${path}`;
+};
 
 /**
  * Generic fetch wrapper matching the pattern used in BacaanKuisModule.
