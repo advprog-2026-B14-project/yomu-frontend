@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { getToken, getUser } from "@/lib/auth";
+import { getToken } from "@/lib/auth";
 
-const API_BASE_PATH = "/api/diskusi-forum";
-const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
+const GATEWAY_URL =
+  process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") ||
+  "https://yomu-gateway-prod.fly.dev";
+const COMMENTS_API_BASE_URL = `${GATEWAY_URL}/api/forum/comments`;
 
 type Reaction = {
   id: string;
@@ -68,8 +70,6 @@ const formatDate = (value?: string) => {
   }).format(date);
 };
 
-const extractUserId = (user: ReturnType<typeof getUser>) => user?.id ?? "";
-
 export const DiskusiForumAdminModule = ({
   className = "",
 }: {
@@ -82,15 +82,13 @@ export const DiskusiForumAdminModule = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const session = getUser();
   const token = getToken();
-  const adminId = extractUserId(session);
 
   const fetchComments = useCallback(async () => {
     const endpoints = [
       COMMENTS_API_BASE_URL,
       `${COMMENTS_API_BASE_URL}/all`,
-      `${API_BASE_PATH}/admin/comments`,
+      `${GATEWAY_URL}/api/forum/admin/comments`,
     ];
 
     let lastError = "Gagal mengambil semua komentar";
@@ -202,16 +200,8 @@ export const DiskusiForumAdminModule = ({
     setDeletingId(comment.id);
     setErrorMsg(null);
 
-    const url = new URL(
-      `${COMMENTS_API_BASE_URL}/${comment.id}`,
-      window.location.origin,
-    );
-    if (adminId) {
-      url.searchParams.set("userId", adminId);
-    }
-
     try {
-      const response = await fetch(url.toString(), {
+      const response = await fetch(`${COMMENTS_API_BASE_URL}/${comment.id}`, {
         method: "DELETE",
         headers: fetchHeaders(token),
       });
