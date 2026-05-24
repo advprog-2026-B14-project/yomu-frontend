@@ -6,7 +6,10 @@ import { getToken } from "@/lib/auth";
 const GATEWAY_URL =
   process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") ||
   "https://yomu-gateway-prod.fly.dev";
-const COMMENTS_API_BASE_URL = `${GATEWAY_URL}/api/forum/comments`;
+const DISKUSI_FORUM_API_BASE_URL =
+  process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL?.replace(/\/$/, "") ||
+  "https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app/api";
+const COMMENTS_API_BASE_URL = `${DISKUSI_FORUM_API_BASE_URL}/comments`;
 
 type Reaction = {
   id: string;

@@ -3,11 +3,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { getUser, getToken } from "@/lib/auth";
 
-const GATEWAY_URL =
-  process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") ||
-  "https://yomu-gateway-prod.fly.dev";
-const COMMENTS_API_BASE_URL = `${GATEWAY_URL}/api/forum/comments`;
-const REACTIONS_API_BASE_URL = `${GATEWAY_URL}/api/forum/reactions`;
+const DISKUSI_FORUM_API_BASE_URL =
+  process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL?.replace(/\/$/, "") ||
+  "https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app/api";
+const COMMENTS_API_BASE_URL = `${DISKUSI_FORUM_API_BASE_URL}/comments`;
+const REACTIONS_API_BASE_URL = `${DISKUSI_FORUM_API_BASE_URL}/reactions`;
 
 type ReactionType =
   | "UPVOTE"
