@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { DiskusiForumModule } from "@/components/modules/DiskusiForumModule";
 import { AuthUser, getUser } from "@/lib/auth";
 
@@ -82,6 +82,17 @@ const danger =
   "rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300";
 
 const optionKeys = ["A", "B", "C", "D"] as const;
+const XP_PER_LEVEL = 1000;
+const ACTIVE_READING_STORAGE_KEY = "yomu.bacaanKuis.activeReading";
+const SAVED_READING_STORAGE_KEY = "yomu.bacaanKuis.savedReading";
+const QUIZ_LOCK_STORAGE_KEY = "yomu.bacaanKuis.quizStarted";
+const COMPLETED_READINGS_STORAGE_PREFIX = "yomu.bacaanKuis.completedReadings";
+
+type SavedReadingState = {
+  id: number;
+  title: string;
+  savedAt: string;
+};
 
 const estimateReadingTime = (content: string) => {
   const words = content.trim().split(/\s+/).filter(Boolean).length;
@@ -120,6 +131,9 @@ export const BacaanKuisModule = () => {
   const [quizStarted, setQuizStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [completedReadingIds, setCompletedReadingIds] = useState<Set<number>>(() => new Set());
+  const reportedReadingProgressIds = useRef(new Set<number>());
+  const reportedQuizProgressIds = useRef(new Set<number>());
 
 
 
@@ -130,7 +144,14 @@ export const BacaanKuisModule = () => {
     const readingId = Number(selectedReadingId);
     return readings.find((reading) => reading.id === readingId) ?? null;
   }, [readings, selectedReadingId]);
+  const hasSelectedReading = Boolean(selectedReadingId);
   const sessionLabel = sessionUser?.username || sessionUser?.fullName || sessionUser?.email || "Learner";
+  const activeReadingTitle = readingView?.title ?? selectedReading?.title ?? null;
+  const navigationItems = [
+    { view: "learn", label: "Bacaan", badge: "Read" },
+    { view: "quiz", label: "Quiz", badge: "Test" },
+    { view: "forum", label: "Forum Diskusi", badge: "Forum" },
+  ] as const;
 
   const answeredCount = useMemo(() => Object.values(learnerAnswers).filter(Boolean).length, [learnerAnswers]);
   const quizProgress = learnerQuestions.length ? Math.round((answeredCount / learnerQuestions.length) * 100) : 0;
@@ -141,8 +162,9 @@ export const BacaanKuisModule = () => {
   const scoreSummary = score === null ? "-" : scoreIsPercentage ? `${score}%` : `${score}/${learnerQuestions.length}`;
   const achievementLevel = achievementProfile?.level ?? null;
   const achievementTotalPoints = achievementProfile?.totalPoints ?? 0;
-  const achievementLevelProgress = achievementLevel === null ? 0 : achievementTotalPoints % 100;
-  const achievementXpToNext = achievementLevel === null ? null : 100 - achievementLevelProgress;
+  const achievementLevelProgress =
+    achievementLevel === null ? 0 : Math.min(100, ((achievementTotalPoints % XP_PER_LEVEL) / XP_PER_LEVEL) * 100);
+  const achievementXpToNext = achievementLevel === null ? null : XP_PER_LEVEL - (achievementTotalPoints % XP_PER_LEVEL);
   const totalQuestionsForSelectedReading = selectedReading
     ? quizzes.filter((quiz) => quiz.readingId === selectedReading.id).length
     : 0;
@@ -240,6 +262,12 @@ export const BacaanKuisModule = () => {
     setReadings(readingData);
     setQuizzes(quizData);
     setLastError(null);
+
+    const savedReading = readSavedReading();
+    const user = getUser();
+    if (savedReading && user?.id && readingData.some((reading) => reading.id === savedReading.id)) {
+      await loadReadingById(savedReading.id, user.id, { restoreOnly: true });
+    }
   };
 
   useEffect(() => {
@@ -247,10 +275,33 @@ export const BacaanKuisModule = () => {
     setSessionUser(user);
     setStudentId(user?.id ?? "");
     if (user?.id) {
+      setCompletedReadingIds(readCompletedReadingIds(user.id));
       void fetchAchievementProfile(user.id);
+      void fetchLeagueStatistics(user.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (activeReadingTitle && selectedReadingId) {
+      const activeReading: SavedReadingState = {
+        id: Number(selectedReadingId),
+        title: activeReadingTitle,
+        savedAt: new Date().toISOString(),
+      };
+      window.localStorage.setItem(ACTIVE_READING_STORAGE_KEY, JSON.stringify(activeReading));
+    } else {
+      window.localStorage.removeItem(ACTIVE_READING_STORAGE_KEY);
+    }
+  }, [activeReadingTitle, selectedReadingId]);
+
+  useEffect(() => {
+    if (quizStarted) {
+      window.localStorage.setItem(QUIZ_LOCK_STORAGE_KEY, "true");
+    } else {
+      window.localStorage.removeItem(QUIZ_LOCK_STORAGE_KEY);
+    }
+  }, [quizStarted]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -278,6 +329,40 @@ export const BacaanKuisModule = () => {
       throw new Error("Pilih bacaan terlebih dahulu.");
     }
     return readingId;
+  };
+
+  const readSavedReading = () => {
+    try {
+      const saved = window.localStorage.getItem(SAVED_READING_STORAGE_KEY);
+      if (!saved) return null;
+      const parsed = JSON.parse(saved) as SavedReadingState;
+      return Number.isFinite(parsed.id) ? parsed : null;
+    } catch {
+      window.localStorage.removeItem(SAVED_READING_STORAGE_KEY);
+      return null;
+    }
+  };
+
+  const getCompletedReadingsStorageKey = (sid: string) => `${COMPLETED_READINGS_STORAGE_PREFIX}.${sid}`;
+
+  const readCompletedReadingIds = (sid: string) => {
+    try {
+      const saved = window.localStorage.getItem(getCompletedReadingsStorageKey(sid));
+      const parsed = saved ? (JSON.parse(saved) as number[]) : [];
+      return new Set(parsed.filter((id) => Number.isFinite(id)));
+    } catch {
+      window.localStorage.removeItem(getCompletedReadingsStorageKey(sid));
+      return new Set<number>();
+    }
+  };
+
+  const markReadingCompleted = (sid: string, readingId: number) => {
+    setCompletedReadingIds((previous) => {
+      const next = new Set(previous);
+      next.add(readingId);
+      window.localStorage.setItem(getCompletedReadingsStorageKey(sid), JSON.stringify([...next]));
+      return next;
+    });
   };
 
   const resetLearnerFlow = () => {
@@ -346,13 +431,36 @@ export const BacaanKuisModule = () => {
     }
   };
 
-  const loadLearnerReading = async () => {
-    const sid = requireStudentId();
-    const readingId = getSelectedReadingNumber();
+  const syncAchievementProgress = async (sid: string, type: "BACA" | "KUIS") => {
+    if (!sid) return false;
+
+    try {
+      const response = await fetch("/api/achievements/update-progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ userId: sid, type }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || `HTTP ${response.status}`);
+      }
+
+      setAchievementProfileError(null);
+      return true;
+    } catch (error) {
+      setAchievementProfileError(error instanceof Error ? error.message : "Gagal sinkron progres Achievement.");
+      return false;
+    }
+  };
+
+  const loadReadingById = async (readingId: number, sid: string, options: { restoreOnly?: boolean } = {}) => {
     const reading = await api<LearnerReadingResponse>(`/api/learner/readings/${readingId}`, {
       headers: { "X-Student-Id": sid },
     });
 
+    setSelectedReadingId(String(readingId));
     setReadingView(reading);
     setQuizStarted(false);
     setLearnerQuestions([]);
@@ -362,8 +470,20 @@ export const BacaanKuisModule = () => {
     setScore(null);
     setActiveView("learn");
     await fetchLeagueStatistics(sid);
+    if (!options.restoreOnly && !reportedReadingProgressIds.current.has(readingId)) {
+      const synced = await syncAchievementProgress(sid, "BACA");
+      if (synced) {
+        reportedReadingProgressIds.current.add(readingId);
+      }
+    }
     await fetchAchievementProfile(sid);
-    showToast("Bacaan berhasil dimuat");
+    showToast(options.restoreOnly ? "Bacaan terakhir dibuka kembali" : "Bacaan berhasil dimuat");
+  };
+
+  const loadLearnerReading = async () => {
+    const sid = requireStudentId();
+    const readingId = getSelectedReadingNumber();
+    await loadReadingById(readingId, sid);
   };
 
   const ensureQuizAttemptStarted = async () => {
@@ -444,12 +564,24 @@ export const BacaanKuisModule = () => {
     setReviewCorrectAnswers(result.correctAnswers ?? {});
     setQuizStarted(false);
     setCurrentQuestion(0);
+    markReadingCompleted(sid, readingId);
     await fetchLeagueStatistics(sid);
+    if (!reportedQuizProgressIds.current.has(readingId)) {
+      const synced = await syncAchievementProgress(sid, "KUIS");
+      if (synced) {
+        reportedQuizProgressIds.current.add(readingId);
+      }
+    }
     await fetchAchievementProfile(sid);
     showToast(`Quiz selesai. Nilai: ${submittedSummary}`);
   };
 
   const navigateView = (view: "learn" | "quiz" | "forum") => {
+    if (quizStarted && view !== "quiz") {
+      showToast("Selesaikan atau submit quiz dulu sebelum membuka menu lain.", "error");
+      return;
+    }
+
     setActiveView(view);
   };
 
@@ -468,29 +600,38 @@ export const BacaanKuisModule = () => {
           </div>
 
           <nav className="space-y-2">
-            {[
-              ["learn", "Bacaan", "Read"],
-              ["quiz", "Quiz", "Test"],
-              ["forum", "Forum Diskusi", "Forum"],
-            ].map(([view, label, badge]) => (
+            {navigationItems.map(({ view, label, badge }) => {
+              const disabled = quizStarted && view !== "quiz";
+              return (
               <button
                 key={view}
                 type="button"
-                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view)}
+                disabled={disabled}
+                title={disabled ? "Menu lain bisa dibuka setelah quiz selesai." : undefined}
                 className={`group flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${
-                  activeView === view ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10" : "text-slate-600 hover:bg-slate-100"
+                  activeView === view
+                    ? "bg-emerald-700 text-white shadow-lg shadow-emerald-900/10"
+                    : disabled
+                      ? "cursor-not-allowed text-slate-300"
+                      : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 <span>{label}</span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] ${
-                    activeView === view ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-white"
+                    activeView === view
+                      ? "bg-white/20 text-white"
+                      : disabled
+                        ? "bg-slate-100 text-slate-300"
+                        : "bg-slate-100 text-slate-500 group-hover:bg-white"
                   }`}
                 >
-                  {badge}
+                  {disabled ? "Locked" : badge}
                 </span>
               </button>
-            ))}
+            );
+            })}
           </nav>
 
           <div className="mt-8 rounded-2xl bg-slate-950 p-4 text-white">
@@ -523,6 +664,27 @@ export const BacaanKuisModule = () => {
             <div>
               <p className="text-sm font-bold text-emerald-700">Selamat belajar, {sessionLabel}</p>
               <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 md:text-3xl">Bacaan dan Kuis</h1>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {activeReadingTitle ? (
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                    Bacaan aktif: {activeReadingTitle}
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-500">
+                    Belum ada bacaan aktif
+                  </span>
+                )}
+                {activeView === "forum" && activeReadingTitle && (
+                  <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-800">
+                    Forum untuk bacaan ini
+                  </span>
+                )}
+                {quizStarted && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                    Quiz sedang berlangsung
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <button
@@ -578,28 +740,33 @@ export const BacaanKuisModule = () => {
             <div className={`${subtlePanel} p-4`}>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">League Payload</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                {leagueStats.status}. Data yang disiapkan: studentId, readingId, akurasi, jumlah jawaban benar, dan frekuensi sesi.
+                Statistik ini dipakai Liga untuk menghitung akurasi dan aktivitas belajar. Status: {leagueStats.status}.
               </p>
             </div>
           </section>
 
           <div className="mb-4 grid gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden md:grid-cols-4">
-            {[
-              ["learn", "Bacaan"],
-              ["quiz", "Quiz"],
-              ["forum", "Forum"],
-            ].map(([view, label]) => (
+            {navigationItems.map(({ view, label }) => {
+              const disabled = quizStarted && view !== "quiz";
+              return (
               <button
                 key={view}
                 type="button"
-                onClick={() => navigateView(view as "learn" | "quiz" | "forum")}
+                onClick={() => navigateView(view)}
+                disabled={disabled}
+                title={disabled ? "Menu lain bisa dibuka setelah quiz selesai." : undefined}
                 className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                  activeView === view ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600"
+                  activeView === view
+                    ? "bg-white text-emerald-700 shadow-sm"
+                    : disabled
+                      ? "cursor-not-allowed text-slate-300"
+                      : "text-slate-600"
                 }`}
               >
                 {label}
               </button>
-            ))}
+            );
+            })}
           </div>
 
           {activeView === "learn" && (
@@ -626,6 +793,7 @@ export const BacaanKuisModule = () => {
                           category={categoryMap.get(reading.categoryId) ?? "Tanpa kategori"}
                           quizCount={quizCount}
                           selected={selectedReadingId === String(reading.id)}
+                          completed={completedReadingIds.has(reading.id)}
                           onSelect={() => {
                             setSelectedReadingId(String(reading.id));
                             resetLearnerFlow();
@@ -644,10 +812,22 @@ export const BacaanKuisModule = () => {
                     {loadingAction === "load-reading" ? "Membuka..." : "Lanjutkan Belajar"}
                   </button>
                   <div className="mt-2 grid grid-cols-2 gap-2">
-                    <button type="button" className={secondary} onClick={() => withLoading("start-quiz", startQuiz)} disabled={!!loadingAction}>
+                    <button
+                      type="button"
+                      className={secondary}
+                      onClick={() => withLoading("start-quiz", startQuiz)}
+                      disabled={!!loadingAction || !hasSelectedReading}
+                      title={!hasSelectedReading ? "Pilih bacaan dulu sebelum mulai quiz." : undefined}
+                    >
                       {loadingAction === "start-quiz" ? "Memulai..." : "Mulai Quiz"}
                     </button>
-                    <button type="button" className={secondary} onClick={() => withLoading("load-questions", loadQuestions)} disabled={!!loadingAction}>
+                    <button
+                      type="button"
+                      className={secondary}
+                      onClick={() => withLoading("load-questions", loadQuestions)}
+                      disabled={!!loadingAction || !hasSelectedReading}
+                      title={!hasSelectedReading ? "Pilih bacaan dulu sebelum memuat soal." : undefined}
+                    >
                       {loadingAction === "load-questions" ? "Memuat..." : "Muat Soal Quiz"}
                     </button>
                   </div>
@@ -734,6 +914,12 @@ export const BacaanKuisModule = () => {
                   <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Achievement Sync</span>
                 </div>
 
+                {quizStarted && (
+                  <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                    Quiz sedang berlangsung. Forum dan bacaan dikunci sementara.
+                  </div>
+                )}
+
                 <div className="mb-6 h-3 rounded-full bg-slate-100">
                   <div className="h-3 rounded-full bg-emerald-600 transition-all" style={{ width: `${quizProgress}%` }} />
                 </div>
@@ -758,7 +944,7 @@ export const BacaanKuisModule = () => {
                     </div>
                     <div className="mt-4 grid gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:grid-cols-3">
                       <MiniMetric label="League Accuracy" value={`${leagueStats.accuracy}%`} />
-                      <MiniMetric label="Correct Answer" value={`${leagueStats.correctAnswers}/${learnerQuestions.length}`} />
+                      <MiniMetric label="Correct Answer" value={`${correctAnswerCount}/${learnerQuestions.length}`} />
                       <MiniMetric label="Frequency" value={leagueStats.frequency} />
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
@@ -1263,6 +1449,7 @@ const ReadingPathCard = ({
   category,
   quizCount,
   selected,
+  completed,
   onSelect,
 }: {
   reading: Reading;
@@ -1270,6 +1457,7 @@ const ReadingPathCard = ({
   category: string;
   quizCount: number;
   selected: boolean;
+  completed: boolean;
   onSelect: () => void;
 }) => {
   const icon = READING_ICONS[index % READING_ICONS.length];
@@ -1283,12 +1471,18 @@ const ReadingPathCard = ({
       className={`group w-full rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 ${
         selected
           ? "border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-100"
-          : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
+          : completed
+            ? "border-lime-300 bg-lime-100 shadow-sm shadow-lime-100 hover:border-lime-400 hover:bg-lime-100"
+            : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${selected ? "bg-emerald-100" : "bg-slate-100"}`}>
+          <span
+            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${
+              selected ? "bg-emerald-100" : completed ? "bg-lime-200" : "bg-slate-100"
+            }`}
+          >
             {icon}
           </span>
           <div className="min-w-0">
@@ -1301,10 +1495,10 @@ const ReadingPathCard = ({
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-            selected ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-500"
+            selected ? "bg-emerald-600 text-white" : completed ? "bg-lime-600 text-white" : "bg-slate-100 text-slate-500"
           }`}
         >
-          {selected ? "Dipilih" : `#${index + 1}`}
+          {selected ? "Dipilih" : completed ? "Selesai" : `#${index + 1}`}
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1312,7 +1506,11 @@ const ReadingPathCard = ({
           <span
             key={chip}
             className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-              selected ? "border-emerald-200 bg-white text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"
+              selected
+                ? "border-emerald-200 bg-white text-emerald-700"
+                : completed
+                  ? "border-lime-300 bg-white/80 text-lime-800"
+                  : "border-slate-200 bg-slate-50 text-slate-500"
             }`}
           >
             {chip}

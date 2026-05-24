@@ -2,14 +2,18 @@
 
 import { useState, useEffect, FormEvent } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "http://localhost:8084";
+const API_BASE_URL =
+    process.env.NEXT_PUBLIC_LIGA_API_BASE_URL ?? "https://yomu-interaksi-sosial-liga-production.up.railway.app";
 
-// --- TYPESCRIPT DEFINITIONS ---
+// --- TYPESCRIPT DEFINITIONS (Udah sesuai DTO Backend & Fide) ---
 type ClanMember = {
     userId: string;
-    name: string;
-    role: string; // "Ketua" | "Member"
-    score: number;
+    fullName?: string;
+    username?: string;
+    role: string;
+    skorIndividu: number;
+    level?: number;
+    pinnedAchievements?: { badgeUrl?: string; nama: string }[];
 };
 
 type Clan = {
@@ -19,7 +23,8 @@ type Clan = {
     totalSkor: number;
     hasProductivityBuff?: boolean;
     hasLowAccuracyDebuff?: boolean;
-    members?: ClanMember[]; // Tambahan array anggota buat di halaman Klan Saya
+    members?: ClanMember[];
+    memberCount?: number;
 };
 
 // ─── TIER CONFIG ───────────────────────────────────────────────────────────────
@@ -117,6 +122,7 @@ const DEFAULT_TIER = {
 };
 
 const getTierConfig = (tier: string) => {
+    if (!tier) return DEFAULT_TIER;
     const key = tier.toUpperCase().replace(/\s/g, "");
     for (const k of Object.keys(TIER_CONFIG)) {
         if (key.includes(k)) return TIER_CONFIG[k];
@@ -124,7 +130,6 @@ const getTierConfig = (tier: string) => {
     return DEFAULT_TIER;
 };
 
-// ─── RANK MEDALS ───────────────────────────────────────────────────────────────
 const MEDAL_EMOJI = ["🥇", "🥈", "🥉"];
 
 // ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
@@ -175,19 +180,69 @@ export const InteraksiSosialLigaModule = () => {
         }
     };
 
+    // ─── FUNGSI NARIK DATA KLAN SENDIRI ───
+    const fetchMyClan = async (userId: string) => {
+        try {
+            let token = "";
+            if (typeof window !== "undefined") {
+                token = localStorage.getItem("token") || localStorage.getItem("accessToken") || "";
+            }
+            if (!token) {
+                const cookies = document.cookie.split("; ");
+                const tokenCookie = cookies.find(c => c.startsWith("token=") || c.startsWith("auth_token="));
+                token = tokenCookie ? tokenCookie.split("=")[1] : "";
+            }
+
+            const headers: HeadersInit = { "Content-Type": "application/json" };
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+
+            const res = await fetch(`${API_BASE_URL}/liga/clan/me?userId=${userId}`, {
+                method: "GET",
+                headers: headers
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setMyClan(data);
+            } else {
+                setMyClan(null);
+            }
+        } catch (e) {
+            console.error("Gagal nyambung ke server buat fetch my clan:", e);
+        }
+    };
+
     useEffect(() => {
         fetchLeaderboard();
         try {
-            const cookies = document.cookie.split(";");
-            const userCookie = cookies.find(c => c.trim().startsWith("user="));
-            if (userCookie) {
-                const userData = JSON.parse(decodeURIComponent(userCookie.split("=")[1]));
-                if (userData?.id) {
-                    setStudentId(userData.id);
-                    setStudentName(userData.username || userData.fullName || "Learner");
+            let userData = null;
+
+            const localUser = localStorage.getItem("user") || localStorage.getItem("userData");
+            if (localUser) {
+                userData = JSON.parse(localUser);
+            }
+
+            if (!userData) {
+                const cookies = document.cookie.split(";");
+                const userCookie = cookies.find(c => c.trim().startsWith("user="));
+                if (userCookie) {
+                    // Pake decodeURIComponent buat jaga-jaga formatnya aneh
+                    const cookieValue = userCookie.split("=")[1];
+                    userData = JSON.parse(decodeURIComponent(cookieValue));
                 }
             }
-        } catch {}
+
+            if (userData && userData.id) {
+                setStudentId(userData.id);
+                setStudentName(userData.username || userData.fullName || "Learner");
+
+                fetchMyClan(userData.id);
+            } else {
+                console.warn("⚠️ Data user ga ketemu! Cookie atau localStorage kosong. Harap login ulang.");
+            }
+        } catch (e) {
+            console.error("Error pas baca data login:", e);
+        }
     }, []);
 
     const handleCreateClan = async (e: FormEvent) => {
@@ -204,17 +259,8 @@ export const InteraksiSosialLigaModule = () => {
             if (!res.ok) throw new Error("Gagal membuat klan");
 
             showToast("Klan berhasil dibuat!", "success");
-
-            // LOGIKA MOCK: Ubah status MyClan jadi klan yang baru dibuat (sebagai Ketua)
-            setMyClan({
-                id: "kln-baru-" + Math.floor(Math.random() * 1000), // ID Sementara
-                namaClan: newClanName,
-                tier: "BRONZE", // Default tier
-                totalSkor: 0,
-                members: [{ userId: studentId, name: studentName, role: "Ketua", score: 0 }]
-            });
-            setActiveView("clan"); // Langsung pindah ke halaman klan
-
+            await fetchMyClan(studentId);
+            setActiveView("clan");
             setNewClanName("");
             fetchLeaderboard();
         } catch (e) {
@@ -238,20 +284,8 @@ export const InteraksiSosialLigaModule = () => {
             if (!res.ok) throw new Error("Gagal bergabung dengan klan");
 
             showToast("Berhasil bergabung!", "success");
-
-            // LOGIKA MOCK: Update UI jadi member klan
-            setMyClan({
-                id: joinClanId,
-                namaClan: "Klan Baru (Refresh untuk nama asli)",
-                tier: "BRONZE",
-                totalSkor: 0,
-                members: [
-                    { userId: "ketua-dummy", name: "Ketua Klan", role: "Ketua", score: 1200 },
-                    { userId: studentId, name: studentName, role: "Member", score: 0 }
-                ]
-            });
+            await fetchMyClan(studentId);
             setActiveView("clan");
-
             setJoinClanId("");
             fetchLeaderboard();
         } catch (e) {
@@ -274,20 +308,8 @@ export const InteraksiSosialLigaModule = () => {
             if (!res.ok) throw new Error("Gagal bergabung");
 
             showToast("Berhasil bergabung!", "success");
-
-            // LOGIKA MOCK: Langsung nge-set state biar ga usah nunggu API
-            setMyClan({
-                id: targetClanId,
-                namaClan: targetClanName,
-                tier: "BRONZE",
-                totalSkor: 0,
-                members: [
-                    { userId: "ketua-dummy", name: "Ketua Klan", role: "Ketua", score: 1500 },
-                    { userId: studentId, name: studentName, role: "Member", score: 0 }
-                ]
-            });
+            await fetchMyClan(studentId);
             setActiveView("clan");
-
             fetchLeaderboard();
         } catch (e) {
             showToast(e instanceof Error ? e.message : "Terjadi kesalahan", "error");
@@ -327,7 +349,7 @@ export const InteraksiSosialLigaModule = () => {
                             ["leaderboard", "Klasemen Liga", "🏆"],
                             ["clan", "Klan Saya", "⚔️"],
                         ] as const).map(([view, label, icon]) => (
-                            <button key={view} onClick={() => setActiveView(view)}
+                            <button key={view} onClick={() => setActiveView(view as any)}
                                     style={{
                                         width: "100%", display: "flex", alignItems: "center", gap: 10,
                                         padding: "10px 12px", borderRadius: 10, border: "none",
@@ -352,7 +374,7 @@ export const InteraksiSosialLigaModule = () => {
                         {myClan && (
                             <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
                                 <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(245,158,11,0.2)", color: "#fbbf24", borderRadius: 6, padding: "3px 8px", border: "1px solid rgba(245,158,11,0.3)" }}>
-                                    {myClan.tier}
+                                    {myClan.tier || "Unranked"}
                                 </span>
                                 {myClan.hasProductivityBuff && (
                                     <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(52,211,153,0.2)", color: "#34d399", borderRadius: 6, padding: "3px 8px", border: "1px solid rgba(52,211,153,0.3)" }}>
@@ -428,7 +450,7 @@ export const InteraksiSosialLigaModule = () => {
                                         return (
                                             <TierSection
                                                 key={tierName} tierName={tierName} clans={clansInTier} cfg={cfg}
-                                                myClanId={myClan?.id} onJoin={joinClanDirectly} isLoading={isLoading}
+                                                myClanId={myClan?.id || myClan?.namaClan} onJoin={joinClanDirectly} isLoading={isLoading}
                                             />
                                         );
                                     })}
@@ -448,19 +470,102 @@ export const InteraksiSosialLigaModule = () => {
 
                                 {/* Stats Grid */}
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-                                    <StatCard label="Jumlah Anggota" value={`${(myClan as any).memberCount || 0} Orang`} tone="emerald" />
+                                    <StatCard label="Jumlah Anggota" value={`${myClan.memberCount || myClan.members?.length || 0} Orang`} tone="emerald" />
                                     <StatCard label="Total Skor Klan" value={(myClan.totalSkor || 0).toLocaleString()} tone="amber" />
                                 </div>
 
                                 <div style={{ marginTop: 24, padding: 20, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-                                    <h4 style={{ margin: "0 0 8px 0", fontWeight: 800 }}>Tier Saat Ini: <span style={{ color: "#059669" }}>{myClan.tier}</span></h4>
+                                    <h4 style={{ margin: "0 0 8px 0", fontWeight: 800 }}>Tier Saat Ini: <span style={{ color: "#059669" }}>{myClan.tier || "Unranked"}</span></h4>
                                     <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>
                                         Terus kumpulkan skor individu untuk membantu klanmu naik ke tier selanjutnya!
                                     </p>
                                 </div>
+
+                                {/* ── DAFTAR ANGGOTA SECTION ── */}
+                                <div style={{ marginTop: 32 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 16 }}>
+                                        <div>
+                                            <h3 style={{ fontSize: 18, fontWeight: 900, margin: 0, color: "#0f172a" }}>Anggota Klan</h3>
+                                            <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>Kontribusi poin di season ini</div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                        {myClan.members?.map((member, idx) => {
+                                            const displayName = member.fullName || member.username || `User-${String(member.userId).substring(0, 4)}`;
+                                            const initial = displayName.charAt(0).toUpperCase();
+                                            const score = member.skorIndividu || 0;
+
+                                            return (
+                                                <div key={member.userId || idx} style={{
+                                                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                                                    padding: "16px 20px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12,
+                                                    transition: "all 0.2s"
+                                                }}>
+
+                                                    {/* SISI KIRI (Identitas & Role) */}
+                                                    <div style={{ display: "flex", alignItems: "center", gap: 16, width: "30%" }}>
+                                                        <div style={{
+                                                            width: 42, height: 42, borderRadius: "50%", background: "#e2e8f0",
+                                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                                            fontSize: 16, fontWeight: 800, color: "#475569"
+                                                        }}>
+                                                            {initial}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>{displayName}</div>
+                                                            <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4, color: member.role === "Ketua" ? "#d97706" : "#64748b" }}>
+                                                                {member.role === "Ketua" ? "👑 Ketua Klan" : "👤 Anggota"}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* SISI TENGAH (Showcase Achievement dengan Jurus Ilusi UI) */}
+                                                    <div style={{ display: "flex", gap: 8, flex: 1, justifyContent: "center" }}>
+                                                        {member.pinnedAchievements && member.pinnedAchievements.length > 0 ? (
+                                                            member.pinnedAchievements.map((ach, i) => {
+                                                                const fallbackEmojis = ["1️⃣", "2️⃣", "3️⃣"];
+                                                                const fallbackEmoji = fallbackEmojis[i] || "🏅";
+
+                                                                return (
+                                                                    <div key={i} title={ach.nama} style={{
+                                                                        width: 32, height: 32, background: "#fff", border: "1px solid #e2e8f0",
+                                                                        borderRadius: 8, display: "flex", alignItems: "center",
+                                                                        justifyContent: "center", overflow: "hidden", cursor: "help",
+                                                                        boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                                                                    }}>
+                                                                        {ach.badgeUrl ? (
+                                                                            <img src={ach.badgeUrl} alt={ach.nama} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                                        ) : (
+                                                                            <span style={{fontSize: 16}}>{fallbackEmoji}</span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>Belum ada pencapaian</div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* SISI KANAN (Skor) */}
+                                                    <div style={{ width: "30%", textAlign: "right" }}>
+                                                        <div style={{ fontSize: 18, fontWeight: 900, color: "#059669", letterSpacing: "-0.02em" }}>
+                                                            +{score.toLocaleString()}
+                                                        </div>
+                                                        <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>
+                                                            Skor Season Ini
+                                                        </div>
+                                                    </div>
+
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                             </div>
                         ) : (
-                            // HALAMAN BUAT / GABUNG KLAN (Kalau belum punya klan)
+                            // HALAMAN BUAT / GABUNG KLAN
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                                 {/* Buat Klan */}
                                 <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 24 }}>
@@ -527,7 +632,6 @@ export const InteraksiSosialLigaModule = () => {
 };
 
 // ─── TIER SECTION ──────────────────────────────────────────────────────────────
-// Simple stat card used in Clan dashboard
 const StatCard = ({ label, value, tone }: { label: string; value: string; tone: "emerald" | "amber" | "purple" }) => {
     const colors: Record<string, string> = {
         emerald: "#059669",
@@ -571,15 +675,15 @@ const TierSection = ({ tierName, clans, cfg, myClanId, onJoin, isLoading }: {
             {/* Rows */}
             {clans.map((clan, idx) => {
                 const rank = idx + 1;
-                const isMe = myClanId === clan.id;
+                // Cek kesamaan lewat ID atau Nama Klan biar fiturnya jalan
+                const isMe = myClanId === clan.id || myClanId === clan.namaClan;
 
-                // HIGHLIGHT LOGIC: Kalau klan sendiri, kasih background emerald muda dan border hijau
                 const baseBg = rank === 1 ? cfg.rowTop : rank === 2 ? cfg.rowSub : "#fff";
                 const rowBg = isMe ? "#ecfdf5" : baseBg;
                 const highlightBorder = isMe ? "inset 4px 0 0 #10b981" : "none";
 
                 return (
-                    <div key={clan.id} style={{
+                    <div key={clan.id || idx} style={{
                         display: "grid", gridTemplateColumns: "56px 1fr 140px 100px", padding: "14px 16px",
                         background: rowBg, borderTop: idx > 0 ? `1px solid ${cfg.divider}` : "none", alignItems: "center",
                         boxShadow: highlightBorder, transition: "background 0.15s",
