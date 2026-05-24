@@ -68,8 +68,6 @@ const formatDate = (value?: string) => {
   }).format(date);
 };
 
-const extractUserId = (user: ReturnType<typeof getUser>) => user?.id ?? "";
-
 export const DiskusiForumAdminModule = ({
   className = "",
 }: {
@@ -84,7 +82,6 @@ export const DiskusiForumAdminModule = ({
 
   const session = getUser();
   const token = getToken();
-  const adminId = extractUserId(session);
 
   const fetchComments = useCallback(async () => {
     const endpoints = [
@@ -199,19 +196,16 @@ export const DiskusiForumAdminModule = ({
       return;
     }
 
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menghapus komentar.");
+      return;
+    }
+
     setDeletingId(comment.id);
     setErrorMsg(null);
 
-    const url = new URL(
-      `${COMMENTS_API_BASE_URL}/${comment.id}`,
-      window.location.origin,
-    );
-    if (adminId) {
-      url.searchParams.set("userId", adminId);
-    }
-
     try {
-      const response = await fetch(url.toString(), {
+      const response = await fetch(`${COMMENTS_API_BASE_URL}/${comment.id}`, {
         method: "DELETE",
         headers: fetchHeaders(token),
       });

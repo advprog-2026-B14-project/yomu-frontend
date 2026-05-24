@@ -90,10 +90,9 @@ export const DiskusiForumModule = ({
     () => new Set(),
   );
 
-  const currentUserId = "550e8400-e29b-41d4-a716-446655440000";
   const session = getUser();
   const token = getToken();
-  const loggedInUserId = session?.id ?? currentUserId;
+  const loggedInUserId = session?.id ?? "";
 
   const fetchComments = useCallback(async () => {
     try {
@@ -204,24 +203,33 @@ export const DiskusiForumModule = ({
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newContent.trim()) return;
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menambah komentar.");
+      return;
+    }
     await postComment(newContent, null);
     setNewContent("");
   };
 
   const handleReply = async (parentId: string) => {
     if (!replyContent.trim()) return;
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum membalas komentar.");
+      return;
+    }
     await postComment(replyContent, parentId);
     setReplyContent("");
     setReplyingToId(null);
   };
 
   const postComment = async (content: string, parentId: string | null) => {
-    const session = getUser();
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menambah komentar.");
+      return;
+    }
+
     const sessionName =
-      session?.username ??
-      session?.fullName ??
-      session?.id?.slice(0, 6) ??
-      null;
+      session?.username ?? session?.fullName ?? session.id.slice(0, 6) ?? null;
     const tempId = `temp-${Date.now()}`;
     const now = new Date().toISOString();
 
@@ -247,7 +255,6 @@ export const DiskusiForumModule = ({
         method: "POST",
         headers,
         body: JSON.stringify({
-          userId: session?.id ?? currentUserId,
           readingId,
           content: content,
           parentCommentId: parentId,
@@ -265,6 +272,11 @@ export const DiskusiForumModule = ({
   };
 
   const handleUpdate = async (id: string) => {
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum memperbarui komentar.");
+      return;
+    }
+
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -273,10 +285,7 @@ export const DiskusiForumModule = ({
       const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
         method: "PUT",
         headers,
-        body: JSON.stringify({
-          userId: loggedInUserId,
-          content: editContent,
-        }),
+        body: JSON.stringify({ content: editContent }),
       });
       if (!res.ok) throw new Error("Gagal mengupdate komentar");
       setEditingId(null);
@@ -290,16 +299,18 @@ export const DiskusiForumModule = ({
 
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus komentar ini?")) return;
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menghapus komentar.");
+      return;
+    }
+
     try {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(
-        `${COMMENTS_API_BASE_URL}/${id}?userId=${loggedInUserId}`,
-        {
-          method: "DELETE",
-          headers,
-        },
-      );
+      const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
+        method: "DELETE",
+        headers,
+      });
       if (!res.ok) throw new Error("Gagal menghapus komentar");
       await fetchComments();
     } catch (err) {
@@ -448,7 +459,6 @@ export const DiskusiForumModule = ({
       <div
         key={comment.id}
         className={`p-5 rounded-xl border shadow-sm ${isReply ? "ml-10 bg-white" : "bg-white"}`}>
-        {}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 flex items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
