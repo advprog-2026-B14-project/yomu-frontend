@@ -3,11 +3,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { getUser, getToken } from "@/lib/auth";
 
-const DISKUSI_FORUM_API_BASE_URL =
-  process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL?.replace(/\/$/, "") ||
-  "https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app/api";
-const COMMENTS_API_BASE_URL = `${DISKUSI_FORUM_API_BASE_URL}/comments`;
-const REACTIONS_API_BASE_URL = `${DISKUSI_FORUM_API_BASE_URL}/reactions`;
+const API_BASE_PATH = "/api/diskusi-forum";
+
+const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
+const REACTIONS_API_BASE_URL = `${API_BASE_PATH}/reactions`;
 
 type ReactionType =
   | "UPVOTE"
@@ -110,66 +109,73 @@ export const DiskusiForumModule = ({
         );
       }
       const data: CommentItem[] = await res.json();
+      const dataArray = Array.isArray(data) ? data : [];
 
-      const commentsWithReactions = await Promise.all(
-        (Array.isArray(data) ? data : []).map(async (comment) => {
-          // enrich comment with reactions and session username if available
-          try {
-            const reactionRes = await fetch(
-              `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
-              {
-                headers: token
-                  ? { Authorization: `Bearer ${token}` }
-                  : undefined,
-              },
-            );
-            const reactions: Reaction[] = reactionRes.ok
-              ? await reactionRes.json()
-              : [];
-            const enriched = { ...comment, reactions } as CommentItem;
-            if (
-              !enriched.authorName &&
-              session &&
-              enriched.userId === session.id
-            ) {
-              enriched.authorName =
-                session.username ?? session.fullName ?? undefined;
-            }
-            // If backend didn't include a userId but the authorName matches
-            // the current session, mark the comment as owned by the session
-            if (session && !enriched.userId && enriched.authorName) {
-              const author = String(enriched.authorName);
+      const commentsWithReactions: CommentItem[] = [];
+      const CHUNK_SIZE = 5; // Batasi request ke server maks 5 bersamaan agar tidak 504 Timeout
+
+      for (let i = 0; i < dataArray.length; i += CHUNK_SIZE) {
+        const chunk = dataArray.slice(i, i + CHUNK_SIZE);
+
+        const chunkResults = await Promise.all(
+          chunk.map(async (comment) => {
+            try {
+              const reactionRes = await fetch(
+                `${REACTIONS_API_BASE_URL}/comment/${comment.id}`,
+                {
+                  headers: token
+                    ? { Authorization: `Bearer ${token}` }
+                    : undefined,
+                },
+              );
+              const reactions: Reaction[] = reactionRes.ok
+                ? await reactionRes.json()
+                : [];
+              const enriched = { ...comment, reactions } as CommentItem;
+
               if (
-                author === session.username ||
-                (session.fullName && author === session.fullName)
+                !enriched.authorName &&
+                session &&
+                enriched.userId === session.id
               ) {
-                enriched.userId = session.id;
+                enriched.authorName =
+                  session.username ?? session.fullName ?? undefined;
               }
-            }
-            return enriched;
-          } catch {
-            const enriched = { ...comment, reactions: [] } as CommentItem;
-            if (
-              !enriched.authorName &&
-              session &&
-              enriched.userId === session.id
-            ) {
-              enriched.authorName =
-                session.username ?? session.fullName ?? undefined;
-            }
-            if (session && !enriched.userId && enriched.authorName) {
-              const author = String(enriched.authorName);
+              if (session && !enriched.userId && enriched.authorName) {
+                const author = String(enriched.authorName);
+                if (
+                  author === session.username ||
+                  (session.fullName && author === session.fullName)
+                ) {
+                  enriched.userId = session.id;
+                }
+              }
+              return enriched;
+            } catch {
+              const enriched = { ...comment, reactions: [] } as CommentItem;
               if (
-                author === session.username ||
-                (session.fullName && author === session.fullName)
+                !enriched.authorName &&
+                session &&
+                enriched.userId === session.id
               ) {
-                enriched.userId = session.id;
+                enriched.authorName =
+                  session.username ?? session.fullName ?? undefined;
               }
+              if (session && !enriched.userId && enriched.authorName) {
+                const author = String(enriched.authorName);
+                if (
+                  author === session.username ||
+                  (session.fullName && author === session.fullName)
+                ) {
+                  enriched.userId = session.id;
+                }
+              }
+              return enriched;
             }
-            return enriched;
-          }
-        }),
-      );
+          }),
+        );
+        commentsWithReactions.push(...chunkResults);
+      }
 
       setComments(commentsWithReactions);
     } catch (err) {
@@ -183,27 +189,54 @@ export const DiskusiForumModule = ({
     fetchComments();
   }, [fetchComments]);
 
+  if (!readingId) {
+    return (
+      <section className={`${shell} ${className}`.trim()}>
+        <div className={panel}>
+          <div className="py-20 text-center">
+            <h2 className="text-2xl font-black text-slate-800">
+              Pilih bacaan terlebih dahulu
+            </h2>
+            <p className="mt-3 text-sm text-slate-500">
+              Silakan pilih bacaan pada panel sebelah kiri untuk melihat dan
+              mengikuti diskusi forum.
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newContent.trim()) return;
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menambah komentar.");
+      return;
+    }
     await postComment(newContent, null);
     setNewContent("");
   };
 
   const handleReply = async (parentId: string) => {
     if (!replyContent.trim()) return;
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum membalas komentar.");
+      return;
+    }
     await postComment(replyContent, parentId);
     setReplyContent("");
     setReplyingToId(null);
   };
 
   const postComment = async (content: string, parentId: string | null) => {
-    const session = getUser();
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menambah komentar.");
+      return;
+    }
+
     const sessionName =
-      session?.username ??
-      session?.fullName ??
-      session?.id?.slice(0, 6) ??
-      null;
+      session?.username ?? session?.fullName ?? session.id.slice(0, 6) ?? null;
     const tempId = `temp-${Date.now()}`;
     const now = new Date().toISOString();
 
@@ -229,7 +262,6 @@ export const DiskusiForumModule = ({
         method: "POST",
         headers,
         body: JSON.stringify({
-          userId: session?.id,
           readingId,
           content: content,
           parentCommentId: parentId,
@@ -247,6 +279,11 @@ export const DiskusiForumModule = ({
   };
 
   const handleUpdate = async (id: string) => {
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum memperbarui komentar.");
+      return;
+    }
+
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -255,10 +292,7 @@ export const DiskusiForumModule = ({
       const res = await fetch(`${COMMENTS_API_BASE_URL}/${id}`, {
         method: "PUT",
         headers,
-        body: JSON.stringify({
-          userId: loggedInUserId,
-          content: editContent,
-        }),
+        body: JSON.stringify({ content: editContent }),
       });
       if (!res.ok) throw new Error("Gagal mengupdate komentar");
       setEditingId(null);
@@ -272,6 +306,11 @@ export const DiskusiForumModule = ({
 
   const handleDelete = async (id: string) => {
     if (!confirm("Hapus komentar ini?")) return;
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menghapus komentar.");
+      return;
+    }
+
     try {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -279,12 +318,7 @@ export const DiskusiForumModule = ({
         method: "DELETE",
         headers,
       });
-      if (!res.ok) {
-        const errorBody = await res.text();
-        throw new Error(
-          `Gagal menghapus komentar (${res.status} ${res.statusText})${errorBody ? `: ${errorBody}` : ""}`,
-        );
-      }
+      if (!res.ok) throw new Error("Gagal menghapus komentar");
       await fetchComments();
     } catch (err) {
       const message =
@@ -432,7 +466,6 @@ export const DiskusiForumModule = ({
       <div
         key={comment.id}
         className={`p-5 rounded-xl border shadow-sm ${isReply ? "ml-10 bg-white" : "bg-white"}`}>
-        {}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 flex items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-700">
@@ -583,69 +616,57 @@ export const DiskusiForumModule = ({
   return (
     <section className={`${shell} ${className}`.trim()}>
       <div className={panel}>
-        {!readingId ? (
-          <div className="py-20 text-center">
-            <h2 className="text-2xl font-black text-slate-800">
-              Pilih bacaan terlebih dahulu
-            </h2>
-            <p className="mt-3 text-sm text-slate-500">
-              Silakan pilih bacaan pada panel sebelah kiri untuk melihat dan
-              mengikuti diskusi forum.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {readingTitle ? (
-              <div className="space-y-2 text-center">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
-                  Diskusi bacaan
-                </p>
-                <h2 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
-                  {readingTitle}
-                </h2>
-                <p className="mx-auto max-w-2xl text-sm leading-6 text-slate-500">
-                  Thread ini mengikuti bacaan yang sedang aktif, jadi konteks
-                  diskusi tetap nyambung dengan materi yang dibaca.
-                </p>
-              </div>
-            ) : null}
-
-            <form
-              onSubmit={handleCreate}
-              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-              <textarea
-                className={`${input} p-4 bg-transparent`}
-                placeholder="Apa pendapatmu mengenai bacaan ini?"
-                value={newContent}
-                onChange={(e) => setNewContent(e.target.value)}
-                required
-              />
-              <button className={`${primary}`}>Kirim Komentar</button>
-            </form>
-
-            {errorMsg && (
-              <div className="flex items-center justify-between rounded-lg border border-red-200 px-4 py-3 text-red-600 dark:border-red-900/60 dark:text-red-300">
-                <span>{errorMsg}</span>
-                <button
-                  type="button"
-                  onClick={() => setErrorMsg(null)}
-                  className="text-sm font-bold">
-                  ×
-                </button>
-              </div>
-            )}
-
-            <div className="space-y-6 rounded-3xl border border-slate-100 bg-slate-50/60 p-4 sm:p-5">
-              {rootComments.length > 0 ? (
-                rootComments.map((comment) => renderComment(comment))
-              ) : (
-                <p className="py-10 text-center italic text-zinc-500">
-                  Belum ada diskusi. Jadilah yang pertama berkomentar!
-                </p>
-              )}
+        <div className="space-y-6">
+          {readingTitle ? (
+            <div className="space-y-2 text-center">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+                Diskusi bacaan
+              </p>
+              <h2 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                {readingTitle}
+              </h2>
+              <p className="mx-auto max-w-2xl text-sm leading-6 text-slate-500">
+                Thread ini mengikuti bacaan yang sedang aktif, jadi konteks
+                diskusi tetap nyambung dengan materi yang dibaca.
+              </p>
             </div>
+          ) : null}
+
+          <form
+            onSubmit={handleCreate}
+            className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+            <textarea
+              className={`${input} p-4 bg-transparent`}
+              placeholder="Apa pendapatmu mengenai bacaan ini?"
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              required
+            />
+            <button className={`${primary}`}>Kirim Komentar</button>
+          </form>
+
+          {errorMsg && (
+            <div className="flex items-center justify-between rounded-lg border border-red-200 px-4 py-3 text-red-600 dark:border-red-900/60 dark:text-red-300">
+              <span>{errorMsg}</span>
+              <button
+                type="button"
+                onClick={() => setErrorMsg(null)}
+                className="text-sm font-bold">
+                ×
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-6 rounded-3xl border border-slate-100 bg-slate-50/60 p-4 sm:p-5">
+            {rootComments.length > 0 ? (
+              rootComments.map((comment) => renderComment(comment))
+            ) : (
+              <p className="py-10 text-center italic text-zinc-500">
+                Belum ada diskusi. Jadilah yang pertama berkomentar!
+              </p>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </section>
   );

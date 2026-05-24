@@ -1,15 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { getToken } from "@/lib/auth";
+import { getToken, getUser } from "@/lib/auth";
 
-const GATEWAY_URL =
-  process.env.NEXT_PUBLIC_GATEWAY_URL?.replace(/\/$/, "") ||
-  "https://yomu-gateway-prod.fly.dev";
-const DISKUSI_FORUM_API_BASE_URL =
-  process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL?.replace(/\/$/, "") ||
-  "https://verbal-atalanta-moondiverc-c0bd26af.koyeb.app/api";
-const COMMENTS_API_BASE_URL = `${DISKUSI_FORUM_API_BASE_URL}/comments`;
+const API_BASE_PATH = "/api/diskusi-forum";
+const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
 
 type Reaction = {
   id: string;
@@ -79,19 +74,21 @@ export const DiskusiForumAdminModule = ({
   className?: string;
 }) => {
   const [comments, setComments] = useState<CommentItem[]>([]);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const session = getUser();
   const token = getToken();
 
   const fetchComments = useCallback(async () => {
+    setLoading(true);
     const endpoints = [
       COMMENTS_API_BASE_URL,
       `${COMMENTS_API_BASE_URL}/all`,
-      `${GATEWAY_URL}/api/forum/admin/comments`,
+      `${API_BASE_PATH}/admin/comments`,
     ];
 
     let lastError = "Gagal mengambil semua komentar";
@@ -113,11 +110,12 @@ export const DiskusiForumAdminModule = ({
         const items = normalizeComments(payload).sort((left, right) => {
           const leftTime = new Date(right.createdAt ?? 0).getTime();
           const rightTime = new Date(left.createdAt ?? 0).getTime();
-          return leftTime - rightTime;
+          return leftTime - rightTime; // Descending
         });
 
         setComments(items);
         setErrorMsg(null);
+        setLoading(false);
         return;
       } catch (error) {
         lastError = error instanceof Error ? error.message : lastError;
@@ -126,6 +124,7 @@ export const DiskusiForumAdminModule = ({
 
     setErrorMsg(lastError);
     setComments([]);
+    setLoading(false);
   }, [token]);
 
   useEffect(() => {
@@ -197,6 +196,11 @@ export const DiskusiForumAdminModule = ({
         "Hapus komentar ini? Komentar turunan juga akan hilang dari daftar admin.",
       )
     ) {
+      return;
+    }
+
+    if (!session?.id) {
+      setErrorMsg("Silakan login ulang sebelum menghapus komentar.");
       return;
     }
 
