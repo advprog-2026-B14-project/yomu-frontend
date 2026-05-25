@@ -57,6 +57,8 @@ const REACTION_OPTIONS: Array<{
   emoji: string;
   type: ReactionType;
 }> = [
+  { emoji: "👍", type: "UPVOTE" },
+  { emoji: "👎", type: "DOWNVOTE" },
   { emoji: "🔥", type: "EMOJI_HEART" },
   { emoji: "🚀", type: "EMOJI_THUMBS_UP" },
   { emoji: "😂", type: "EMOJI_LAUGH" },
