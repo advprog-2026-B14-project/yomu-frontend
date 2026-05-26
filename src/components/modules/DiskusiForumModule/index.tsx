@@ -93,8 +93,8 @@ export const DiskusiForumModule = ({
     () => new Set(),
   );
 
-  const session = getUser();
-  const token = getToken();
+  const session = React.useMemo(() => getUser(), []);
+  const token = React.useMemo(() => getToken(), []);
   const loggedInUserId = session?.id ?? "";
 
   const getAuthHeaders = (extraHeaders: Record<string, string> = {}) => {
@@ -427,6 +427,7 @@ export const DiskusiForumModule = ({
         if (!addRes.ok) throw new Error("Gagal menambahkan reaction");
       }
 
+      setErrorMsg(null);
       void syncCommentReactions(commentId);
     } catch (err) {
       setComments(previousComments);
