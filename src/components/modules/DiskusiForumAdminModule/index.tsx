@@ -78,8 +78,8 @@ export const DiskusiForumAdminModule = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const session = getUser();
-  const token = getToken();
+  const session = React.useMemo(() => getUser(), []);
+  const token = React.useMemo(() => getToken(), []);
 
   const fetchHeaders = useCallback(() => {
     const headers: Record<string, string> = {};
