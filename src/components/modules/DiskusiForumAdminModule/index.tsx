@@ -3,7 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken, getUser } from "@/lib/auth";
 
-const API_BASE_PATH = "/api/diskusi-forum";
+const API_BASE_PATH =
+  process.env.NEXT_PUBLIC_DISKUSI_FORUM_API_BASE_URL || "/api/diskusi-forum";
 const COMMENTS_API_BASE_URL = `${API_BASE_PATH}/comments`;
 
 type Reaction = {
@@ -44,9 +45,6 @@ const secondary =
 const danger =
   "rounded-xl bg-rose-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300";
 
-const fetchHeaders = (token: string | null) =>
-  token ? { Authorization: `Bearer ${token}` } : undefined;
-
 const normalizeComments = (payload: unknown): CommentItem[] => {
   if (Array.isArray(payload)) return payload as CommentItem[];
   if (payload && typeof payload === "object") {
@@ -83,6 +81,14 @@ export const DiskusiForumAdminModule = ({
   const session = getUser();
   const token = getToken();
 
+  const fetchHeaders = useCallback(() => {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (session?.id) headers["X-User-Id"] = session.id;
+    headers["X-User-Role"] = "ADMIN";
+    return headers;
+  }, [token, session]);
+
   const fetchComments = useCallback(async () => {
     setLoading(true);
     const endpoints = [
@@ -96,7 +102,7 @@ export const DiskusiForumAdminModule = ({
     for (const endpoint of endpoints) {
       try {
         const response = await fetch(endpoint, {
-          headers: fetchHeaders(token),
+          headers: fetchHeaders(),
           cache: "no-store",
         });
 
@@ -110,7 +116,7 @@ export const DiskusiForumAdminModule = ({
         const items = normalizeComments(payload).sort((left, right) => {
           const leftTime = new Date(right.createdAt ?? 0).getTime();
           const rightTime = new Date(left.createdAt ?? 0).getTime();
-          return leftTime - rightTime; // Descending
+          return leftTime - rightTime;
         });
 
         setComments(items);
@@ -125,7 +131,7 @@ export const DiskusiForumAdminModule = ({
     setErrorMsg(lastError);
     setComments([]);
     setLoading(false);
-  }, [token]);
+  }, [fetchHeaders]);
 
   useEffect(() => {
     void fetchComments();
@@ -210,7 +216,7 @@ export const DiskusiForumAdminModule = ({
     try {
       const response = await fetch(`${COMMENTS_API_BASE_URL}/${comment.id}`, {
         method: "DELETE",
-        headers: fetchHeaders(token),
+        headers: fetchHeaders(),
       });
 
       if (!response.ok) {
